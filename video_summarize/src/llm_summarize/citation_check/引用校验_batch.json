@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "结果": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "是否支撑": {"type": "boolean"},
+          "失败原因": {"type": "string"},
+          "重写后条目": {"type": "object"}
+        },
+        "required": ["是否支撑"]
+      }
+    }
+  },
+  "required": ["结果"]
+}

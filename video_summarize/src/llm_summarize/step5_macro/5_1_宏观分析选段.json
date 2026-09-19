@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "选中段号": {
+      "type": "array",
+      "items": {"type": "integer", "minimum": 1}
+    }
+  },
+  "required": ["选中段号"]
+}

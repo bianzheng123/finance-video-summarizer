@@ -1,0 +1,94 @@
+[TASK]
+{{ task_rules }}
+{% if correction_hints_text %}
+{{ correction_hints_text }}
+{% endif %}
+{% if topics %}
+
+本批话题的事件背景（判断「事件 vs 资产」时参考）：
+{% for t in topics %}
+- 话题 {{ t.idx }}{% if t.label %}（{{ t.label }}）{% endif %}{% if t.事件 %}｜事件：{{ t.事件 }}{% endif %}
+{% endfor %}
+{% endif %}
+
+【本批待消歧的疑似点清单】共 {{ suspects | length }} 条，每条都必须有归宿（进错词列表 / 指代列表 / 留在疑似点 / 字面正确已解决不输出）：
+{% for s in suspects %}
+- rowID {{ s.rowID }}｜片段「{{ s.原先的片段 }}」{% if s.出现序号 and s.出现序号 > 1 %}（本行第 {{ s.出现序号 }} 次出现）{% endif %}｜初判：{{ s.初判类型 }}
+  所在行原文：{{ s.原文 }}
+{% if s.频次 %}  候选切分词全场频次：{% for w, c in s.频次.items() %}{{ w }}×{{ c }}{% if not loop.last %}、{% endif %}{% endfor %}{% endif %}
+{% if s.前文 %}  上文：{{ s.前文 | join(" / ") }}{% endif %}
+{% if s.后文 %}  下文：{{ s.后文 | join(" / ") }}{% endif %}
+  违和原因：{{ s.违和原因 }}{% if s.上下文线索 %}
+  上下文线索：{{ s.上下文线索 | join("、") }}{% endif %}{% if s.候选 %}
+  候选：{{ s.候选 }}（上游给的最可能正确写法/实体名/方向，优先验证）{% endif %}
+{% endfor %}
+[/TASK]
+
+[DATA]
+{{ subtitle_text }}
+[/DATA]
+{% if annotation_text %}
+[ANNOTATION]
+{{ annotation_text }}
+[/ANNOTATION]
+{% endif %}
+
+[DATABASE]
+{% if subtitle_knowledge %}
+字幕内自解释知识（1_1/1_2 从本场字幕原文抽出的「主讲人自己解释过的黑话/概念」，可信度高，消歧时**优先采信**）：
+{% for k in subtitle_knowledge %}
+- 「{{ k.词 }}」＝{{ k.解释 }}
+{% endfor %}
+
+{% endif %}
+{% if jargon_hints %}
+本次上下文相关的合法简称/黑话（词表确认的合法表达，**不是错字**——禁止改写/删除/展开；已通过上下文线索门控验证）：
+{% for h in jargon_hints %}
+- 「{{ h.word }}」＝{{ h.formal }}
+{% endfor %}
+{% else %}
+（本次上下文未命中任何词表黑话别名）
+{% endif %}
+{% if confirmed_hints %}
+
+本场已确证的黑话（其他批次已确认的别名→正式名，可直接采信）：
+{% for h in confirmed_hints %}
+- 「{{ h.word }}」＝{{ h.formal }}
+{% endfor %}
+{% endif %}
+{% if plain_names %}
+
+白话表（正式名，字面正确、无需映射）：
+{{ plain_names | join("、") }}
+{% endif %}
+{% for s in suspects %}
+---
+rowID {{ s.rowID }} 片段「{{ s.原先的片段 }}」的拼音候选：
+{% if s.homophone_candidates %}
+完全同音候选（声母韵母完全相同，仅声调可能不同）：
+{% for c in s.homophone_candidates %}
+- 原文片段「{{ c.original }}」疑似「{{ c.suspect }}{% if c.formal != c.suspect %}={{ c.formal }}{% endif %}」
+{% endfor %}
+{% endif %}
+{% if s.truncation_candidates %}
+吞音候选（疑似吞掉首字节）：
+{% for c in s.truncation_candidates %}
+- 原文片段「{{ c.original }}」疑似是「{{ c.suspect }}{% if c.formal != c.suspect %}={{ c.formal }}{% endif %}」去掉首字后的形式
+{% endfor %}
+{% endif %}
+{% if not s.homophone_candidates and not s.truncation_candidates %}
+（无拼音候选——注意：这**不代表**它是黑话，也不代表它不是错字，请结合词表与上下文判断）
+{% endif %}
+{% endfor %}
+{% if news_items %}
+
+【当日市场快讯】（当日最新财经新闻，仅作黑话/错字消歧的背景参考，**非本次视频字幕内容**，禁止当作字幕事实引用）：
+{% for n in news_items %}
+- {% if n.发布时间 %}[{{ n.发布时间 }}] {% endif %}{{ n.标题 }}{% if n.摘要 %}：{{ n.摘要 }}{% endif %}
+{% endfor %}
+{% endif %}
+[/DATABASE]
+
+[ROWID]
+{{ rowid_scope | tojson }}
+[/ROWID]

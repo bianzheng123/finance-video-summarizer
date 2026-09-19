@@ -1,0 +1,81 @@
+[TASK]
+{{ task_rules }}
+{% if publish_date %}
+
+本场直播日期：{{ publish_date }}（联网搜索请携带该日期，验证「某板块/标的当日是否确实发生所述行情」等时间敏感事实）
+{% endif %}
+{% if correction_hints_text %}
+{{ correction_hints_text }}
+{% endif %}
+{% if topics %}
+
+本批话题的事件背景（判断「事件 vs 资产」时参考）：
+{% for t in topics %}
+- 话题 {{ t.idx }}{% if t.label %}（{{ t.label }}）{% endif %}{% if t.事件 %}｜事件：{{ t.事件 }}{% endif %}
+{% endfor %}
+{% endif %}
+
+【本批待消歧的疑似点清单】共 {{ pending | length }} 条，每条都必须有归宿（进错词列表 / 指代列表 / 留在疑似点 / 字面正确已解决不输出）：
+{% for p in pending %}
+- rowID {{ p.rowID }}｜片段「{{ p.原先的片段 }}」{% if p.出现序号 and p.出现序号 > 1 %}（本行第 {{ p.出现序号 }} 次出现）{% endif %}｜初判：{{ p.初判类型 }}
+  所在行原文：{{ p.原文 }}
+{% if p.频次 %}  候选切分词全场频次：{% for w, c in p.频次.items() %}{{ w }}×{{ c }}{% if not loop.last %}、{% endif %}{% endfor %}{% endif %}
+{% if p.前文 %}  上文：{{ p.前文 | join(" / ") }}{% endif %}
+{% if p.后文 %}  下文：{{ p.后文 | join(" / ") }}{% endif %}
+  违和原因：{{ p.违和原因 }}{% if p.上下文线索 %}
+  上下文线索：{{ p.上下文线索 | join("、") }}{% endif %}{% if p.候选 %}
+  候选：{{ p.候选 }}（上游给的最可能正确写法/实体名/方向，优先验证）{% endif %}
+{% endfor %}
+
+最多 {{ max_rounds }} 轮对话：第一轮搜证据、证据充分直接收尾；仅第一轮未解决的疑似点进第二轮换方向再搜。轮数用尽仍未判定的点，留在「疑似点」、保持原文。
+[/TASK]
+
+[DATA]
+{{ subtitle_text }}
+[/DATA]
+{% if annotation_text %}
+[ANNOTATION]
+{{ annotation_text }}
+[/ANNOTATION]
+{% endif %}
+
+[DATABASE]
+{% if jargon_hints %}
+本次上下文相关的合法简称/黑话（词表确认的合法表达，**不是错字**；已通过上下文线索门控验证）：
+{% for h in jargon_hints %}
+- 「{{ h.word }}」＝{{ h.formal }}
+{% endfor %}
+{% else %}
+（本次上下文未命中任何词表黑话别名——待确认点很可能是词表尚未收录的新说法）
+{% endif %}
+{% if confirmed_hints %}
+
+本场已确证的黑话（其他批次已确认的别名→正式名，可直接采信）：
+{% for h in confirmed_hints %}
+- 「{{ h.word }}」＝{{ h.formal }}
+{% endfor %}
+{% endif %}
+{% for p in pending %}
+---
+rowID {{ p.rowID }} 片段「{{ p.原先的片段 }}」的拼音候选：
+{% if p.homophone_candidates %}
+完全同音候选（声母韵母完全相同，仅声调可能不同）：
+{% for c in p.homophone_candidates %}
+- 原文片段「{{ c.original }}」疑似「{{ c.suspect }}{% if c.formal != c.suspect %}={{ c.formal }}{% endif %}」
+{% endfor %}
+{% endif %}
+{% if p.truncation_candidates %}
+吞音候选（疑似吞掉首字节）：
+{% for c in p.truncation_candidates %}
+- 原文片段「{{ c.original }}」疑似是「{{ c.suspect }}{% if c.formal != c.suspect %}={{ c.formal }}{% endif %}」去掉首字后的形式
+{% endfor %}
+{% endif %}
+{% if not p.homophone_candidates and not p.truncation_candidates %}
+（无拼音候选——这**不代表**它是错字，也不代表它是黑话；请靠联网证据判断）
+{% endif %}
+{% endfor %}
+[/DATABASE]
+
+[ROWID]
+{{ rowid_scope | tojson }}
+[/ROWID]

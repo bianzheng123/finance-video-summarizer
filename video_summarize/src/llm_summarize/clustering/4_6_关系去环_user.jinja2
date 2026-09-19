@@ -1,0 +1,15 @@
+[TASK]
+{{ task_rules }}
+
+【环上关系】（每条含「主题1」「主题1类型」「主题2」「主题2类型」，即主题1 把 主题2 列为候选父）
+{{ edges | tojson }}
+[/TASK]
+
+[DATA]
+{{ subtitle_text }}
+[/DATA]
+{% if annotation_text %}
+[ANNOTATION]
+{{ annotation_text }}
+[/ANNOTATION]
+{% endif %}

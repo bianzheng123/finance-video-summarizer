@@ -1,0 +1,17 @@
+[TASK]
+{{ task_rules }}
+
+【待判定对】
+{{ pairs | tojson }}
+
+请对上述每一对输出 `是否等价` 判定（`关键词1` / `关键词2` 必须逐字取自上面的清单）。
+[/TASK]
+
+[DATA]
+{{ subtitle_text }}
+[/DATA]
+{% if annotation_text %}
+[ANNOTATION]
+{{ annotation_text }}
+[/ANNOTATION]
+{% endif %}

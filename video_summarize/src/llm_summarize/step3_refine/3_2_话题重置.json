@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "properties": {
+    "是否需要修正": {"type": "boolean"},
+    "修正说明": {"type": "string"},
+    "新话题列表": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "开始行号": {"type": "integer", "minimum": 1},
+          "结束行号": {"type": "integer", "minimum": 1},
+          "话题标签": {"type": "string"},
+          "事件": {"type": "string"},
+          "是否重要": {"type": "boolean"},
+          "困惑": {"type": "boolean"},
+          "困惑原因": {"type": "string"}
+        },
+        "required": ["开始行号", "结束行号", "话题标签", "事件", "是否重要", "困惑", "困惑原因"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["是否需要修正", "修正说明", "新话题列表"],
+  "additionalProperties": false
+}

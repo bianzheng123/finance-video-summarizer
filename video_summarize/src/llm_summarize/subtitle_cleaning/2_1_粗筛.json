@@ -1,0 +1,104 @@
+{
+  "type": "object",
+  "properties": {
+    "无关行号": {
+      "type": "array",
+      "items": {"type": "integer", "minimum": 1}
+    },
+    "噪音行号": {
+      "type": "array",
+      "items": {"type": "integer", "minimum": 1}
+    },
+    "疑似点": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rowID": {"type": "integer", "minimum": 1},
+          "标注": {"type": "string", "minLength": 1},
+          "初判类型": {
+            "type": "string",
+            "enum": ["疑似错别字", "疑似黑话", "疑似黑话错别字"]
+          },
+          "违和原因": {"type": "string"},
+          "上下文线索": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "候选": {"type": "string"}
+        },
+        "required": ["rowID", "标注", "初判类型", "违和原因", "上下文线索"],
+        "additionalProperties": false
+      }
+    },
+    "指代列表": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rowID": {"type": "integer", "minimum": 1},
+          "标注": {"type": "string", "minLength": 1},
+          "指代": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "依据": {"type": "string", "enum": ["上下文", ""]}
+        },
+        "required": ["rowID", "标注", "指代"],
+        "additionalProperties": false
+      }
+    },
+    "错词列表": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rowID": {"type": "integer", "minimum": 1},
+          "标注": {"type": "string", "minLength": 1},
+          "修改的词": {"type": "string", "minLength": 1},
+          "依据": {"type": "string", "enum": ["上下文", ""]}
+        },
+        "required": ["rowID", "标注", "修改的词"],
+        "additionalProperties": false
+      }
+    },
+    "段落指代": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rowID": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 1},
+          "真实含义": {"type": "string", "minLength": 1},
+          "理由": {"type": "string", "minLength": 1}
+        },
+        "required": ["rowID", "真实含义", "理由"],
+        "additionalProperties": false
+      }
+    },
+    "嘴瓢": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rowID": {"type": "integer", "minimum": 1},
+          "标注": {"type": "string", "minLength": 1},
+          "违和原因": {"type": "string"}
+        },
+        "required": ["rowID", "标注", "违和原因"],
+        "additionalProperties": false
+      }
+    },
+    "事件描述": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rowID": {"type": "integer", "minimum": 1},
+          "标注": {"type": "string", "minLength": 1},
+          "违和原因": {"type": "string"}
+        },
+        "required": ["rowID", "标注", "违和原因"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["无关行号", "噪音行号", "疑似点", "指代列表", "错词列表", "段落指代", "嘴瓢", "事件描述"],
+  "additionalProperties": false
+}

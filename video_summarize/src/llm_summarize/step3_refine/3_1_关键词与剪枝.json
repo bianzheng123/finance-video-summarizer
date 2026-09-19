@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "properties": {
+    "关键词列表": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rowID": {"type": "integer", "minimum": 1},
+          "词": {"type": "string", "minLength": 1},
+          "正式名": {"type": "string"},
+          "类型": {
+            "type": "string",
+            "enum": ["关键词事件", "股票", "板块", "指数", "风格因子", "债券", "大宗商品", "外汇", "加密货币", "个股黑话", "板块黑话"]
+          }
+        },
+        "required": ["rowID", "词", "正式名", "类型"],
+        "additionalProperties": false
+      }
+    },
+    "改判说明": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rowID": {"type": "integer", "minimum": 1},
+          "原判": {"type": "string", "enum": ["无关", "噪音", "重点"]},
+          "终判": {"type": "string", "enum": ["无关", "噪音", "重点"]},
+          "原因": {"type": "string"}
+        },
+        "required": ["rowID", "原判", "终判", "原因"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["关键词列表", "改判说明"],
+  "additionalProperties": false
+}

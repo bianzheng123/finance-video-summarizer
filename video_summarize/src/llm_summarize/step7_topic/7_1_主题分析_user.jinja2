@@ -1,0 +1,50 @@
+[TASK]
+{{ task_rules }}
+
+---
+
+【本主题子项白名单】
+{% if sub_items_whitelist %}
+以下是已经分配给「{{ topic_name }}」的子项清单——`投资机会` 的 `标题` 字段**必须**严格是 `{{ topic_name }}` 自身或这些子项中的一个，**不能**额外添加其他资产名：
+{{ sub_items_whitelist | tojson }}
+
+铁律 A（必出）：上述子项白名单里**每一项**资产，都必须至少作为一个 `投资机会` 条目的标题输出（短线 + 中长线 都要出，无方向性观点时观点设为 `未表态 🤐`）。
+铁律 B（不超）：`投资机会 标题` 必须严格 ∈ `{{ topic_name }}` ∪ 上述子项白名单——字幕中提到的其他资产即使有方向性观点也只能写到 `市场知识`，不能作为 投资机会 条目。
+{% else %}
+主题「{{ topic_name }}」当前没有子项——`投资机会` 的 `标题` 必须严格等于 `{{ topic_name }}` 自身，**不能**为字幕中提到的其他资产创建 投资机会 条目（这些资产应归入 `市场知识 / 事件与资产 / 其他`）。
+{% endif %}
+{% if keyword_event_sub_items %}
+
+【本主题子项中的关键词事件】
+以下是本主题子项里属于**事件**的子项（上游已把它们降级为普通子项，不再单列主题、也不单列「投资机会」条目）。它们的完整事件叙事（起因→发展→影响→结果）**必须**写入 `事件与资产` 字段（可多条，按事件阶段展开），被提及/受影响的资产写进 `涉及资产`。这些子项**不得**作为 `投资机会` 的 `标题` 输出，也不受铁律 A/B 约束：
+{{ keyword_event_sub_items | tojson }}
+{% endif %}
+{% if stock_sub_items %}
+
+【本主题子项白名单中的个股清单】
+以下是子项白名单里属于个股的标的——`投资机会` 中以下标的的条目**必须**输出 `当前价格` 字段（取值：`贵 💰 / 便宜 💸 / 不贵也不便宜 ⚖️ / 未表态 🤐`，默认 `未表态 🤐`）：
+{{ stock_sub_items | tojson }}
+
+白名单里的非个股子项（板块/概念）和 `{{ topic_name }}` 板块自身条目**禁止**输出 `当前价格` 字段。
+{% endif %}
+[/TASK]
+
+[DATA]
+{{ subtitle_text }}
+[/DATA]
+{% if annotation_text %}
+[ANNOTATION]
+{{ annotation_text }}
+[/ANNOTATION]
+{% endif %}
+{% if sibling_topics %}
+
+[DATABASE]
+【其他主题的引用区间】
+{{ sibling_topics | tojson }}
+[/DATABASE]
+{% endif %}
+
+[ROWID]
+{{ rowid_scope | tojson }}
+[/ROWID]

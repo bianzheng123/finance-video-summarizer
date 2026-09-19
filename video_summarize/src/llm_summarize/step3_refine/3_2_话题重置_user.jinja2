@@ -1,0 +1,53 @@
+[TASK]
+{{ task_rules }}
+
+【本单元负责区间】
+你输出的话题段必须**完全覆盖且不超出**以下行号区间（闭区间，端点含）：
+{{ unit_scope | tojson }}
+
+{% if retry_hint %}
+【上次输出不合规，请修正后重新输出】
+你上一轮的输出未通过系统校验，问题如下，请在本轮修正后再输出：
+{{ retry_hint }}
+{% endif %}
+
+【当前分割（供参考）】
+本单元当前共 {{ segments | length }} 个话题段（1_1 的分割结果，按行号升序）。你需要在已纠错、指代已内联的字幕上重新切分本单元，输出完整的 `新话题列表`——可以参考当前分割，但不要被它束缚，该合并/挪切点/拆分/改标签时就改。标「**待复核**」的是 1_1 自报没读懂的段。
+{% for s in segments -%}
+- 行 {{ s.开始行号 }}-{{ s.结束行号 }}｜标签「{{ s.话题标签 }}」｜事件{% if s.事件 %}「{{ s.事件 }}」{% else %}（空）{% endif %}｜是否重要 {{ s.是否重要 }}{% if s.困惑 %}｜**待复核**：{{ s.困惑原因 }}{% endif %}
+{% endfor -%}
+[/TASK]
+
+[DATA]
+{{ subtitle_text }}
+[/DATA]
+{% if annotation_text %}
+
+[ANNOTATION]
+{{ annotation_text }}
+[/ANNOTATION]
+{% endif %}
+
+[DATABASE]
+{% if jargon_hints %}
+【词表黑话别名】（本次上下文命中且已通过线索门控的合法简称/黑话，**不是错字**，直接采信其正式名）：
+{% for h in jargon_hints %}
+- 「{{ h.word }}」＝{{ h.formal }}
+{% endfor %}
+{% endif %}
+{% if resolved_jargon %}
+【已确证黑话】（第 2 步已按行确证的结论，正式名可信，**禁止重新怀疑**；`[DATA]` 里出现对应词形时直接采信）：
+{% for j in resolved_jargon %}
+- row{{ j.rowID }}「{{ j.词 }}」＝{{ j.正式名 }}
+{% endfor %}
+{% endif %}
+{% if unresolved_jargon %}
+【未解析黑话】（第 2 步未能解析、正式名**不可采信**，仅提示"这些词可能是实体但未定论"，不要替它们脑补指代）：
+{% for j in unresolved_jargon %}
+- row{{ j.rowID }}「{{ j.词 }}」：{{ j.困惑原因 or "未解析" }}
+{% endfor %}
+{% endif %}
+{% if not jargon_hints and not resolved_jargon and not unresolved_jargon %}
+（本次上下文未命中任何黑话知识）
+{% endif %}
+[/DATABASE]

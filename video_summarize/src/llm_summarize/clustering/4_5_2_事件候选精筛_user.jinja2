@@ -1,0 +1,15 @@
+[TASK]
+{{ task_rules }}
+
+【待判对】（每个元素含「子」「子类型」「父」「父类型」，逐对判定）
+{{ pairs | tojson }}
+[/TASK]
+
+[DATA]
+{{ subtitle_text }}
+[/DATA]
+{% if annotation_text %}
+[ANNOTATION]
+{{ annotation_text }}
+[/ANNOTATION]
+{% endif %}

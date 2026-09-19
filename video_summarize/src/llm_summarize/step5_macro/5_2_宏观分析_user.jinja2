@@ -1,0 +1,37 @@
+{%- from '_repair_block.jinja2' import repair_block -%}
+[TASK]
+{{ task_rules }}
+
+【本次负责的字段】
+只输出下列字段，其余字段本次不负责、一律不要输出：
+{% for f in field_group.字段 %}
+- {{ f }}
+{% endfor %}
+{{ repair_block(repair_items) }}
+[/TASK]
+
+[DATA]
+{{ subtitle_text }}
+[/DATA]
+{% if annotation_text %}
+[ANNOTATION]
+{{ annotation_text }}
+[/ANNOTATION]
+{% endif %}
+{% if all_sectors_text or indices_text or styles_text %}
+
+[DATABASE]
+{% if all_sectors_text %}
+【已知板块列表（含各板块在 [DATA] 中的引用行号）】
+{{ all_sectors_text }}
+{% endif %}
+{% if indices_text %}
+【指数列表（含各指数在 [DATA] 中的引用行号）】
+{{ indices_text }}
+{% endif %}
+{% if styles_text %}
+【风格因子列表（含各风格因子在 [DATA] 中的引用行号）】
+{{ styles_text }}
+{% endif %}
+[/DATABASE]
+{% endif %}

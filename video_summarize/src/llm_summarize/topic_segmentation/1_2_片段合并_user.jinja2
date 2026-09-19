@@ -1,0 +1,24 @@
+[TASK]
+{{ task_rules }}
+
+【段 A】行号 {{ seg_a_scope | tojson }}，标签「{{ seg_a_label }}」{% if seg_a_event %}，事件名「{{ seg_a_event }}」{% endif %}
+【段 B】行号 {{ seg_b_scope | tojson }}，标签「{{ seg_b_label }}」{% if seg_b_event %}，事件名「{{ seg_b_event }}」{% endif %}
+{% if gap_count %}
+注意：两段之间隔着 {{ gap_count }} 个观众互动/感谢/寒暄等非金融段——判定时跳过这些中间段，只看段 A 的讨论在互动结束后是否延续到段 B（延续则合并，中间非金融段由下游剪枝，不影响判断）。若中间隔着的非金融内容很长、讨论已被打断转向，则不是延续。
+{% endif %}
+
+请判断这两段是否属于同一话题、应当合并。重点看段 A 末尾与段 B 开头衔接处的原文。
+[/TASK]
+
+[DATA]
+{{ subtitle_text }}
+[/DATA]
+{% if annotation_text %}
+[ANNOTATION]
+{{ annotation_text }}
+[/ANNOTATION]
+{% endif %}
+
+[ROWID]
+{{ rowid_scope | tojson }}
+[/ROWID]

@@ -1,0 +1,158 @@
+{
+  "type": "object",
+  "properties": {
+    "投资机会": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "标题": {"type": "string"},
+          "短线": {
+            "type": "object",
+            "properties": {
+              "观点": {
+                "type": "string",
+                "enum": ["看空 🐻📉", "看多 🐂📈", "中性 🦀➡️", "未表态 🤐"]
+              },
+              "逻辑": {"type": "string"},
+              "引用": {
+                "type": "array",
+                "items": {"type": "integer", "minimum": 1}
+              }
+            },
+            "required": ["观点", "逻辑", "引用"]
+          },
+          "中长线": {
+            "type": "object",
+            "properties": {
+              "观点": {
+                "type": "string",
+                "enum": ["看空 🐻📉", "看多 🐂📈", "中性 🦀➡️", "未表态 🤐"]
+              },
+              "逻辑": {"type": "string"},
+              "引用": {
+                "type": "array",
+                "items": {"type": "integer", "minimum": 1}
+              }
+            },
+            "required": ["观点", "逻辑", "引用"]
+          },
+          "当前价格": {
+            "type": "object",
+            "properties": {
+              "观点": {
+                "type": "string",
+                "enum": ["贵 💰", "便宜 💸", "不贵也不便宜 ⚖️", "未表态 🤐"]
+              },
+              "引用": {
+                "type": "array",
+                "items": {"type": "integer", "minimum": 1}
+              }
+            },
+            "required": ["观点", "引用"]
+          }
+        },
+        "required": ["标题"]
+      }
+    },
+    "个人交易记录": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "标的名称": {"type": "string"},
+          "操作描述": {"type": "string"},
+          "操作理由": {"type": "string"},
+          "操作结果": {"type": "string"},
+          "引用": {
+            "type": "array",
+            "items": {"type": "integer", "minimum": 1}
+          }
+        },
+        "required": ["标的名称", "操作描述", "操作理由", "操作结果", "引用"]
+      }
+    },
+    "事件与资产": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "标题": {"type": "string"},
+          "涉及资产": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "影响与结果": {"type": "string"},
+          "逻辑": {"type": "string"},
+          "依据类型": {"type": "string"},
+          "引用": {
+            "type": "array",
+            "items": {"type": "integer", "minimum": 1}
+          }
+        },
+        "required": ["标题", "涉及资产", "影响与结果", "逻辑", "依据类型", "引用"]
+      }
+    },
+    "市场知识": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "标题": {"type": "string"},
+          "内容": {"type": "string"},
+          "引用": {
+            "type": "array",
+            "items": {"type": "integer", "minimum": 1}
+          }
+        },
+        "required": ["标题", "内容", "引用"]
+      }
+    },
+    "观点": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "标的名称": {"type": "string"},
+          "观点": {"type": "string"},
+          "引用": {
+            "type": "array",
+            "items": {"type": "integer", "minimum": 1}
+          },
+          "因果链": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "环节类型": {"type": "string", "enum": ["前提/事实", "推理", "结论"]},
+                "内容": {"type": "string"},
+                "引用": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {"type": "integer", "minimum": 1}
+                }
+              },
+              "required": ["环节类型", "内容", "引用"]
+            }
+          }
+        },
+        "required": ["标的名称", "观点", "引用", "因果链"]
+      }
+    },
+    "其他": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "内容": {"type": "string"},
+          "引用": {
+            "type": "array",
+            "items": {"type": "integer", "minimum": 1}
+          }
+        },
+        "required": ["内容", "引用"]
+      }
+    }
+  },
+  "required": ["投资机会", "个人交易记录", "事件与资产", "市场知识", "观点", "其他"]
+}

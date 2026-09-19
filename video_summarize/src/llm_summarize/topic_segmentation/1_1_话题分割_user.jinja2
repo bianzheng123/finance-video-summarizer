@@ -1,0 +1,18 @@
+[TASK]
+{{ task_rules }}
+
+请基于 [DATA] 输出话题分割，**只覆盖 [ROWID] 给出的范围**：所有话题段的 开始行号 / 结束行号 都必须落在该范围内，范围外的字幕由别的调用负责分割。
+[/TASK]
+
+[DATA]
+{{ subtitle_text }}
+[/DATA]
+{% if annotation_text %}
+[ANNOTATION]
+{{ annotation_text }}
+[/ANNOTATION]
+{% endif %}
+
+[ROWID]
+{{ rowid_scope | tojson }}
+[/ROWID]

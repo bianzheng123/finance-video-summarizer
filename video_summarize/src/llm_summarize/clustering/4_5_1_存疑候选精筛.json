@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "候选父板块": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {"type": "string"}
+      }
+    },
+    "存疑": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "子": {"type": "string"},
+          "父": {"type": "string"}
+        },
+        "required": ["子", "父"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["候选父板块", "存疑"]
+}

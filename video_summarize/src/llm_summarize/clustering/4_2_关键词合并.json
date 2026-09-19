@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "判定": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "对ID": {"type": "string"},
+          "关键词1": {"type": "string"},
+          "关键词2": {"type": "string"},
+          "结论": {"type": "string", "enum": ["等价", "不等价"]},
+          "困惑度": {"type": "boolean"},
+          "保留": {"type": "string"},
+          "理由": {"type": "string"}
+        },
+        "required": ["对ID", "关键词1", "关键词2", "结论", "困惑度", "理由"]
+      }
+    }
+  },
+  "required": ["判定"]
+}

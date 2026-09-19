@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "判定": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "关键词1": {"type": "string"},
+          "关键词2": {"type": "string"},
+          "是否等价": {"type": "boolean"},
+          "保留": {"type": "string"},
+          "理由": {"type": "string"}
+        },
+        "required": ["关键词1", "关键词2", "是否等价", "理由"]
+      }
+    }
+  },
+  "required": ["判定"]
+}

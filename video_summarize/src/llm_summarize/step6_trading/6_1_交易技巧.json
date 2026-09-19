@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+
+  },
+  "additionalProperties": {
+    "oneOf": [
+      {"type": "array"},
+      {
+        "type": "object",
+        "properties": {
+          "具体方法": {"type": "string"},
+          "适用范围或前提": {"type": "string"},
+          "引用": {
+            "type": "array",
+            "items": {"type": "integer", "minimum": 1}
+          }
+        },
+        "required": ["具体方法", "适用范围或前提", "引用"]
+      }
+    ]
+  }
+}

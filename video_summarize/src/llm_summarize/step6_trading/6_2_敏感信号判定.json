@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "properties": {
+    "判定": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "候选id": {"type": "integer"},
+          "是否真信号": {"type": "boolean"},
+          "信号类型": {
+            "type": "string",
+            "enum": [
+              "下次会员课预告",
+              "下次再讲",
+              "公域讲不了",
+              "具体标的不便明说",
+              "私域可讲",
+              "暗示敏感",
+              "非真信号"
+            ]
+          },
+          "置信度": {"type": "string", "enum": ["high", "medium", "low"]},
+          "理由": {"type": "string"},
+          "原话总结": {"type": "string"}
+        },
+        "required": ["候选id", "是否真信号", "信号类型", "置信度"]
+      }
+    }
+  },
+  "required": ["判定"]
+}

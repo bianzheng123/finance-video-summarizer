@@ -1,0 +1,12 @@
+[TASK]
+{{ task_rules }}
+
+【主题清单】（每个主题带 `候选父`：代码预筛出的候选父板块，只能从里面筛）
+{{ topic_list | tojson }}
+
+{% if batch_scope %}
+[本批范围]
+本批只为主题 {{ batch_scope | tojson }} 输出筛选结果。其他主题仅作上下文参考，不要为它们输出键。
+[/本批范围]
+{% endif %}
+[/TASK]

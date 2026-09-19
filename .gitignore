@@ -1,0 +1,35 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# ---- 环境变量（含 API 密钥，绝不提交）----
+.env
+
+# ---- 本地配置（含个人 URL / 邮箱 / Cookie 等）----
+video_summarize/config_local/
+
+# ---- 运行产物 ----
+video_summarize/summary_data/
+video_summarize/logs/
+video_summarize/video_download/
+video_summarize/live_recordings/
+video_summarize/incremental_database/
+video_summarize/benchmark/
+video_summarize/asr_output/
+
+# ---- 数据库本地生成物 ----
+video_summarize/database/cache/
+video_summarize/database/hotword_stock_enhance.json
+
+# ---- 脚本实验产物 ----
+video_summarize/script/extracted_logs/
+
+# ---- IDE ----
+.idea/
+.vscode/
+*.swp

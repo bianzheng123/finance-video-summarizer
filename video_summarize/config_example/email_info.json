@@ -1,0 +1,22 @@
+{
+  "sender": {
+    "smtp_host": "xxx",
+    "smtp_port": 465,
+    "sender": "xxx",
+    "password": "xxxx"
+  },
+  "customers": [
+    {
+      "name": "xxx",
+      "email": "xx@xx.com",
+      "bloggers": ["深研一点"],
+      "expire_date": "2026-09-29"
+    }
+  ],
+  "staff": [
+    {
+      "email": "xx@xx.com",
+      "name": "xxxxx"
+    }
+  ]
+}

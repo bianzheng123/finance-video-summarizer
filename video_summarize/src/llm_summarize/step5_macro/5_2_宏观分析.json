@@ -1,0 +1,131 @@
+{
+  "type": "object",
+  "properties": {
+    "大盘情绪与状态判断": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "标题": {"type": "string", "maxLength": 15},
+          "观点": {"type": "string"},
+          "引用": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "integer", "minimum": 1}
+          }
+        },
+        "required": ["标题", "观点", "引用"]
+      }
+    },
+    "宏观经济与事件影响分析": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "标题": {"type": "string", "maxLength": 15},
+          "观点": {"type": "string"},
+          "引用": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "integer", "minimum": 1}
+          }
+        },
+        "required": ["标题", "观点", "引用"]
+      }
+    },
+    "后市观点": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "标题": {"type": "string", "maxLength": 15},
+          "观点": {"type": "string"},
+          "引用": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "integer", "minimum": 1}
+          }
+        },
+        "required": ["标题", "观点", "引用"]
+      }
+    },
+    "仓位建议": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "标题": {"type": "string", "maxLength": 15},
+          "观点": {"type": "string"},
+          "引用": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "integer", "minimum": 1}
+          }
+        },
+        "required": ["标题", "观点", "引用"]
+      }
+    },
+    "热点板块预测": {
+      "type": "object",
+      "properties": {
+        "总览": {"type": "string"},
+        "板块清单": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "板块名称": {"type": "string"},
+              "预测倾向": {
+                "type": "string",
+                "enum": ["看多即将启动", "看空回调", "关注但不明确"]
+              },
+              "时间窗口": {"type": "string"},
+              "条件/前置事件": {"type": "string"},
+              "引用": {
+                "type": "array",
+                "items": {"type": "integer", "minimum": 1}
+              }
+            },
+            "required": ["板块名称", "预测倾向", "时间窗口", "条件/前置事件", "引用"]
+          }
+        }
+      },
+      "required": ["总览", "板块清单"]
+    },
+    "板块分析": {
+      "type": "object",
+      "properties": {
+        "观点": {"type": "string"},
+        "板块涨跌": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "板块名称": {"type": "string"},
+              "涨跌情况": {"type": "string"},
+              "引用": {
+                "type": "array",
+                "items": {"type": "integer", "minimum": 1}
+              }
+            },
+            "required": ["板块名称", "涨跌情况", "引用"]
+          }
+        },
+        "资金流向": {
+          "type": "object",
+          "properties": {
+            "观点": {"type": "string"},
+            "引用": {
+              "type": "array",
+              "items": {"type": "integer", "minimum": 1}
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": ["大盘情绪与状态判断", "宏观经济与事件影响分析", "后市观点", "仓位建议", "热点板块预测"]
+}

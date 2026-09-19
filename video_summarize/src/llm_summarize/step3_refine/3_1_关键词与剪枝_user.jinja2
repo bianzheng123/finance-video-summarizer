@@ -1,0 +1,21 @@
+[TASK]
+{{ task_rules }}
+
+本批共 {{ topics | length }} 个话题，逐话题的行号范围如下（所有输出行号必须落在这些范围内）：
+{% for t in topics %}
+- 话题 {{ t.idx }}{% if t.label %}（{{ t.label }}）{% endif %}：{{ t.scope | tojson }}
+{% endfor %}
+[/TASK]
+
+[DATA]
+{{ subtitle_text }}
+[/DATA]
+{% if annotation_text %}
+[ANNOTATION]
+{{ annotation_text }}
+[/ANNOTATION]
+{% endif %}
+
+[ROWID]
+{{ rowid_scope | tojson }}
+[/ROWID]

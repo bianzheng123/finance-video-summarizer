@@ -1,0 +1,842 @@
+[
+  {
+    "rowID": 1,
+    "start_time": "00:08:59",
+    "end_time": "00:08:59",
+    "speaker": 0,
+    "text": "对吧？"
+  },
+  {
+    "rowID": 2,
+    "start_time": "00:08:59",
+    "end_time": "00:09:00",
+    "speaker": 0,
+    "text": "这个能理解不？"
+  },
+  {
+    "rowID": 3,
+    "start_time": "00:09:00",
+    "end_time": "00:09:01",
+    "speaker": 0,
+    "text": "哎，"
+  },
+  {
+    "rowID": 4,
+    "start_time": "00:09:01",
+    "end_time": "00:09:03",
+    "speaker": 0,
+    "text": "每个人要寻找到自己适合表达的操作，"
+  },
+  {
+    "rowID": 5,
+    "start_time": "00:09:03",
+    "end_time": "00:09:05",
+    "speaker": 0,
+    "text": "第二个这个我想表达的什么呢？"
+  },
+  {
+    "rowID": 6,
+    "start_time": "00:09:05",
+    "end_time": "00:09:08",
+    "speaker": 0,
+    "text": "如果你对一种操作有信仰。"
+  },
+  {
+    "rowID": 7,
+    "start_time": "00:09:08",
+    "end_time": "00:09:11",
+    "speaker": 0,
+    "text": "你是不会受到任何人影响的。"
+  },
+  {
+    "rowID": 8,
+    "start_time": "00:09:12",
+    "end_time": "00:09:13",
+    "speaker": 0,
+    "text": "明白吗？"
+  },
+  {
+    "rowID": 9,
+    "start_time": "00:09:13",
+    "end_time": "00:09:15",
+    "speaker": 0,
+    "text": "如果你对一种操作有信仰。"
+  },
+  {
+    "rowID": 10,
+    "start_time": "00:09:16",
+    "end_time": "00:09:18",
+    "speaker": 0,
+    "text": "你别人怎么说都影响不了你，"
+  },
+  {
+    "rowID": 11,
+    "start_time": "00:09:18",
+    "end_time": "00:09:19",
+    "speaker": 0,
+    "text": "你说你是价值投资，"
+  },
+  {
+    "rowID": 12,
+    "start_time": "00:09:19",
+    "end_time": "00:09:20",
+    "speaker": 0,
+    "text": "别人说哎呀这个行业不好了，"
+  },
+  {
+    "rowID": 13,
+    "start_time": "00:09:20",
+    "end_time": "00:09:21",
+    "speaker": 0,
+    "text": "要要不行了，"
+  },
+  {
+    "rowID": 14,
+    "start_time": "00:09:21",
+    "end_time": "00:09:22",
+    "speaker": 0,
+    "text": "给你吓够呛，"
+  },
+  {
+    "rowID": 15,
+    "start_time": "00:09:23",
+    "end_time": "00:09:25",
+    "speaker": 0,
+    "text": "那你说明你也不是价值投资。"
+  },
+  {
+    "rowID": 16,
+    "start_time": "00:09:25",
+    "end_time": "00:09:27",
+    "speaker": 0,
+    "text": "因为你自己没有主见，"
+  },
+  {
+    "rowID": 17,
+    "start_time": "00:09:27",
+    "end_time": "00:09:29",
+    "speaker": 0,
+    "text": "就不管你是做短线也好，"
+  },
+  {
+    "rowID": 18,
+    "start_time": "00:09:29",
+    "end_time": "00:09:31",
+    "speaker": 0,
+    "text": "你是做我说的价值投资也好，"
+  },
+  {
+    "rowID": 19,
+    "start_time": "00:09:31",
+    "end_time": "00:09:33",
+    "speaker": 0,
+    "text": "最重要的是你自己骨子里。"
+  },
+  {
+    "rowID": 20,
+    "start_time": "00:09:34",
+    "end_time": "00:09:36",
+    "speaker": 0,
+    "text": "到底懂到什么程度，"
+  },
+  {
+    "rowID": 21,
+    "start_time": "00:09:37",
+    "end_time": "00:09:39",
+    "speaker": 0,
+    "text": "做短线没什么不好的，"
+  },
+  {
+    "rowID": 22,
+    "start_time": "00:09:39",
+    "end_time": "00:09:41",
+    "speaker": 0,
+    "text": "但是我尽量挑选什么呢？"
+  },
+  {
+    "rowID": 23,
+    "start_time": "00:09:41",
+    "end_time": "00:09:43",
+    "speaker": 0,
+    "text": "我觉得听直播的人。"
+  },
+  {
+    "rowID": 24,
+    "start_time": "00:09:43",
+    "end_time": "00:09:45",
+    "speaker": 0,
+    "text": "短线都是做不好的。"
+  },
+  {
+    "rowID": 25,
+    "start_time": "00:09:46",
+    "end_time": "00:09:47",
+    "speaker": 0,
+    "text": "这么讲能明白的呢？"
+  },
+  {
+    "rowID": 26,
+    "start_time": "00:09:48",
+    "end_time": "00:09:49",
+    "speaker": 0,
+    "text": "懂吗？"
+  },
+  {
+    "rowID": 27,
+    "start_time": "00:09:49",
+    "end_time": "00:09:51",
+    "speaker": 0,
+    "text": "听直播的人短线都是做不好的，"
+  },
+  {
+    "rowID": 28,
+    "start_time": "00:09:51",
+    "end_time": "00:09:54",
+    "speaker": 0,
+    "text": "因为能做好的不会听别人怎么评价的，"
+  },
+  {
+    "rowID": 29,
+    "start_time": "00:09:54",
+    "end_time": "00:09:54",
+    "speaker": 0,
+    "text": "他自己就去做，"
+  },
+  {
+    "rowID": 30,
+    "start_time": "00:09:54",
+    "end_time": "00:09:55",
+    "speaker": 0,
+    "text": "就咔咔做。"
+  },
+  {
+    "rowID": 31,
+    "start_time": "00:09:56",
+    "end_time": "00:09:57",
+    "speaker": 0,
+    "text": "但凡听直播的人。"
+  },
+  {
+    "rowID": 32,
+    "start_time": "00:09:58",
+    "end_time": "00:09:59",
+    "speaker": 0,
+    "text": "他都是短线做不好的，"
+  },
+  {
+    "rowID": 33,
+    "start_time": "00:09:59",
+    "end_time": "00:10:01",
+    "speaker": 0,
+    "text": "咱得实话实讲，"
+  },
+  {
+    "rowID": 34,
+    "start_time": "00:10:01",
+    "end_time": "00:10:04",
+    "speaker": 0,
+    "text": "所以说我能帮大家的就是尽量少犯错误，"
+  },
+  {
+    "rowID": 35,
+    "start_time": "00:10:04",
+    "end_time": "00:10:05",
+    "speaker": 0,
+    "text": "大家要想明白这个道理啊，"
+  },
+  {
+    "rowID": 36,
+    "start_time": "00:10:05",
+    "end_time": "00:10:06",
+    "speaker": 0,
+    "text": "来吧，"
+  },
+  {
+    "rowID": 37,
+    "start_time": "00:10:06",
+    "end_time": "00:10:06",
+    "speaker": 0,
+    "text": "我们讲行情啊，"
+  },
+  {
+    "rowID": 38,
+    "start_time": "00:10:06",
+    "end_time": "00:10:09",
+    "speaker": 0,
+    "text": "最近行情的走势大家也看到了，"
+  },
+  {
+    "rowID": 39,
+    "start_time": "00:10:09",
+    "end_time": "00:10:11",
+    "speaker": 0,
+    "text": "其实你做科技也很难受。"
+  },
+  {
+    "rowID": 40,
+    "start_time": "00:10:11",
+    "end_time": "00:10:13",
+    "speaker": 0,
+    "text": "科技的反弹出来了，"
+  },
+  {
+    "rowID": 41,
+    "start_time": "00:10:13",
+    "end_time": "00:10:14",
+    "speaker": 0,
+    "text": "今天已经对吧，"
+  },
+  {
+    "rowID": 42,
+    "start_time": "00:10:14",
+    "end_time": "00:10:15",
+    "speaker": 0,
+    "text": "到这种反弹出来，"
+  },
+  {
+    "rowID": 43,
+    "start_time": "00:10:15",
+    "end_time": "00:10:17",
+    "speaker": 0,
+    "text": "但是这科技的反弹过程中，"
+  },
+  {
+    "rowID": 44,
+    "start_time": "00:10:17",
+    "end_time": "00:10:19",
+    "speaker": 0,
+    "text": "第一个爆发力很弱。"
+  },
+  {
+    "rowID": 45,
+    "start_time": "00:10:20",
+    "end_time": "00:10:21",
+    "speaker": 0,
+    "text": "对吧，"
+  },
+  {
+    "rowID": 46,
+    "start_time": "00:10:21",
+    "end_time": "00:10:23",
+    "speaker": 0,
+    "text": "第二个持续性还不够，"
+  },
+  {
+    "rowID": 47,
+    "start_time": "00:10:23",
+    "end_time": "00:10:24",
+    "speaker": 0,
+    "text": "操作难度很大。"
+  },
+  {
+    "rowID": 48,
+    "start_time": "00:10:25",
+    "end_time": "00:10:26",
+    "speaker": 0,
+    "text": "但是呢，"
+  },
+  {
+    "rowID": 49,
+    "start_time": "00:10:26",
+    "end_time": "00:10:27",
+    "speaker": 0,
+    "text": "我一直强调的是什么，"
+  },
+  {
+    "rowID": 50,
+    "start_time": "00:10:27",
+    "end_time": "00:10:28",
+    "speaker": 0,
+    "text": "就是当前行情，"
+  },
+  {
+    "rowID": 51,
+    "start_time": "00:10:28",
+    "end_time": "00:10:30",
+    "speaker": 0,
+    "text": "比如说7月份之前。"
+  },
+  {
+    "rowID": 52,
+    "start_time": "00:10:31",
+    "end_time": "00:10:33",
+    "speaker": 0,
+    "text": "我们的科技硬科技硬件，"
+  },
+  {
+    "rowID": 53,
+    "start_time": "00:10:34",
+    "end_time": "00:10:35",
+    "speaker": 0,
+    "text": "比什么美光啊，"
+  },
+  {
+    "rowID": 54,
+    "start_time": "00:10:35",
+    "end_time": "00:10:37",
+    "speaker": 0,
+    "text": "比什么海力士啊涨得还猛。"
+  },
+  {
+    "rowID": 55,
+    "start_time": "00:10:38",
+    "end_time": "00:10:40",
+    "speaker": 0,
+    "text": "但是最近从昨天开始，"
+  },
+  {
+    "rowID": 56,
+    "start_time": "00:10:40",
+    "end_time": "00:10:41",
+    "speaker": 0,
+    "text": "最近这几天，"
+  },
+  {
+    "rowID": 57,
+    "start_time": "00:10:41",
+    "end_time": "00:10:43",
+    "speaker": 0,
+    "text": "大家有没有发现一个特点。"
+  },
+  {
+    "rowID": 58,
+    "start_time": "00:10:43",
+    "end_time": "00:10:46",
+    "speaker": 0,
+    "text": "就是我们有点儿跟不住外盘了。"
+  },
+  {
+    "rowID": 59,
+    "start_time": "00:10:47",
+    "end_time": "00:10:48",
+    "speaker": 0,
+    "text": "能明白吗？"
+  },
+  {
+    "rowID": 60,
+    "start_time": "00:10:48",
+    "end_time": "00:10:50",
+    "speaker": 0,
+    "text": "外盘的科技反弹很猛的。"
+  },
+  {
+    "rowID": 61,
+    "start_time": "00:10:51",
+    "end_time": "00:10:53",
+    "speaker": 0,
+    "text": "外盘的科技昨天又是上涨的，"
+  },
+  {
+    "rowID": 62,
+    "start_time": "00:10:54",
+    "end_time": "00:10:56",
+    "speaker": 0,
+    "text": "但是我们有点跟不住了，"
+  },
+  {
+    "rowID": 63,
+    "start_time": "00:10:56",
+    "end_time": "00:10:59",
+    "speaker": 0,
+    "text": "就是外边涨咱也高开跟高开，"
+  },
+  {
+    "rowID": 64,
+    "start_time": "00:10:59",
+    "end_time": "00:11:01",
+    "speaker": 0,
+    "text": "最后就整顶不上去就掉下来了，"
+  },
+  {
+    "rowID": 65,
+    "start_time": "00:11:01",
+    "end_time": "00:11:02",
+    "speaker": 0,
+    "text": "昨天晚上是吧，"
+  },
+  {
+    "rowID": 66,
+    "start_time": "00:11:02",
+    "end_time": "00:11:04",
+    "speaker": 0,
+    "text": "小泡菜那边是不是长得不错，"
+  },
+  {
+    "rowID": 67,
+    "start_time": "00:11:04",
+    "end_time": "00:11:06",
+    "speaker": 0,
+    "text": "昨天但我们怎么尾盘掉下来了。"
+  },
+  {
+    "rowID": 68,
+    "start_time": "00:11:06",
+    "end_time": "00:11:07",
+    "speaker": 0,
+    "text": "前面还有一天，"
+  },
+  {
+    "rowID": 69,
+    "start_time": "00:11:08",
+    "end_time": "00:11:10",
+    "speaker": 0,
+    "text": "所以这个地方大家一定要注意这个问题，"
+  },
+  {
+    "rowID": 70,
+    "start_time": "00:11:10",
+    "end_time": "00:11:11",
+    "speaker": 0,
+    "text": "我是我对科技的，"
+  },
+  {
+    "rowID": 71,
+    "start_time": "00:11:11",
+    "end_time": "00:11:13",
+    "speaker": 0,
+    "text": "尤其是硬件科技的判断，"
+  },
+  {
+    "rowID": 72,
+    "start_time": "00:11:13",
+    "end_time": "00:11:16",
+    "speaker": 0,
+    "text": "我早在一个月前就告诉你了。"
+  },
+  {
+    "rowID": 73,
+    "start_time": "00:11:16",
+    "end_time": "00:11:20",
+    "speaker": 0,
+    "text": "我说这个地方科技的大跌不是泡沫破裂，"
+  },
+  {
+    "rowID": 74,
+    "start_time": "00:11:20",
+    "end_time": "00:11:22",
+    "speaker": 0,
+    "text": "记得大哥记得他刚开始跌的时候。"
+  },
+  {
+    "rowID": 75,
+    "start_time": "00:11:23",
+    "end_time": "00:11:24",
+    "speaker": 0,
+    "text": "我就告诉大家了，"
+  },
+  {
+    "rowID": 76,
+    "start_time": "00:11:24",
+    "end_time": "00:11:26",
+    "speaker": 0,
+    "text": "这次泡沫的破裂，"
+  },
+  {
+    "rowID": 77,
+    "start_time": "00:11:26",
+    "end_time": "00:11:27",
+    "speaker": 0,
+    "text": "不是什么泡沫破裂，"
+  },
+  {
+    "rowID": 78,
+    "start_time": "00:11:27",
+    "end_time": "00:11:28",
+    "speaker": 0,
+    "text": "就是贵了，"
+  },
+  {
+    "rowID": 79,
+    "start_time": "00:11:28",
+    "end_time": "00:11:30",
+    "speaker": 0,
+    "text": "所以说7月份跌下来了，"
+  },
+  {
+    "rowID": 80,
+    "start_time": "00:11:30",
+    "end_time": "00:11:30",
+    "speaker": 0,
+    "text": "记得吧，"
+  },
+  {
+    "rowID": 81,
+    "start_time": "00:11:30",
+    "end_time": "00:11:31",
+    "speaker": 0,
+    "text": "它不是破裂了。"
+  },
+  {
+    "rowID": 82,
+    "start_time": "00:11:31",
+    "end_time": "00:11:32",
+    "speaker": 0,
+    "text": "这第一条，"
+  },
+  {
+    "rowID": 83,
+    "start_time": "00:11:32",
+    "end_time": "00:11:33",
+    "speaker": 0,
+    "text": "第二条。"
+  },
+  {
+    "rowID": 84,
+    "start_time": "00:11:33",
+    "end_time": "00:11:34",
+    "speaker": 0,
+    "text": "是吧，"
+  },
+  {
+    "rowID": 85,
+    "start_time": "00:11:34",
+    "end_time": "00:11:36",
+    "speaker": 0,
+    "text": "不是所有的科技都不行。"
+  },
+  {
+    "rowID": 86,
+    "start_time": "00:11:37",
+    "end_time": "00:11:37",
+    "speaker": 0,
+    "text": "第二个，"
+  },
+  {
+    "rowID": 87,
+    "start_time": "00:11:37",
+    "end_time": "00:11:38",
+    "speaker": 0,
+    "text": "不是所有的科技都不行，"
+  },
+  {
+    "rowID": 88,
+    "start_time": "00:11:38",
+    "end_time": "00:11:40",
+    "speaker": 0,
+    "text": "有业绩支撑的，"
+  },
+  {
+    "rowID": 89,
+    "start_time": "00:11:40",
+    "end_time": "00:11:42",
+    "speaker": 0,
+    "text": "长期还能持续增长业绩的。"
+  },
+  {
+    "rowID": 90,
+    "start_time": "00:11:42",
+    "end_time": "00:11:44",
+    "speaker": 0,
+    "text": "贵了之后会跌下来，"
+  },
+  {
+    "rowID": 91,
+    "start_time": "00:11:44",
+    "end_time": "00:11:45",
+    "speaker": 0,
+    "text": "跌了以后可能还会涨回去。"
+  },
+  {
+    "rowID": 92,
+    "start_time": "00:11:46",
+    "end_time": "00:11:48",
+    "speaker": 0,
+    "text": "但是什么样的东西不行了，"
+  },
+  {
+    "rowID": 93,
+    "start_time": "00:11:48",
+    "end_time": "00:11:52",
+    "speaker": 0,
+    "text": "就是本来就没有业绩的情绪炒作的，"
+  },
+  {
+    "rowID": 94,
+    "start_time": "00:11:52",
+    "end_time": "00:11:53",
+    "speaker": 0,
+    "text": "跟风上去的。"
+  },
+  {
+    "rowID": 95,
+    "start_time": "00:11:53",
+    "end_time": "00:11:55",
+    "speaker": 0,
+    "text": "主力出完货了。"
+  },
+  {
+    "rowID": 96,
+    "start_time": "00:11:55",
+    "end_time": "00:11:57",
+    "speaker": 0,
+    "text": "那么他就不吵了。"
+  },
+  {
+    "rowID": 97,
+    "start_time": "00:11:58",
+    "end_time": "00:11:59",
+    "speaker": 0,
+    "text": "所以说科技上大家要注意，"
+  },
+  {
+    "rowID": 98,
+    "start_time": "00:11:59",
+    "end_time": "00:12:03",
+    "speaker": 0,
+    "text": "我要表达第一个硬件里边不是核心供应商的。"
+  },
+  {
+    "rowID": 99,
+    "start_time": "00:12:04",
+    "end_time": "00:12:04",
+    "speaker": 0,
+    "text": "要注意。"
+  },
+  {
+    "rowID": 100,
+    "start_time": "00:12:05",
+    "end_time": "00:12:08",
+    "speaker": 0,
+    "text": "第二个科技远远不止于硬件。"
+  },
+  {
+    "rowID": 101,
+    "start_time": "00:12:09",
+    "end_time": "00:12:11",
+    "speaker": 0,
+    "text": "大家要理解这个逻辑，"
+  },
+  {
+    "rowID": 102,
+    "start_time": "00:12:11",
+    "end_time": "00:12:11",
+    "speaker": 0,
+    "text": "能明白吗？"
+  },
+  {
+    "rowID": 103,
+    "start_time": "00:12:11",
+    "end_time": "00:12:14",
+    "speaker": 0,
+    "text": "所以说大家其实你做的根本不是科技。"
+  },
+  {
+    "rowID": 104,
+    "start_time": "00:12:15",
+    "end_time": "00:12:16",
+    "speaker": 0,
+    "text": "就是这瓶矿泉水天天涨，"
+  },
+  {
+    "rowID": 105,
+    "start_time": "00:12:16",
+    "end_time": "00:12:18",
+    "speaker": 0,
+    "text": "你也买的就是它了。"
+  },
+  {
+    "rowID": 106,
+    "start_time": "00:12:19",
+    "end_time": "00:12:19",
+    "speaker": 0,
+    "text": "对吧，"
+  },
+  {
+    "rowID": 107,
+    "start_time": "00:12:19",
+    "end_time": "00:12:20",
+    "speaker": 0,
+    "text": "郁金香涨，"
+  },
+  {
+    "rowID": 108,
+    "start_time": "00:12:20",
+    "end_time": "00:12:21",
+    "speaker": 0,
+    "text": "你买的就是郁金香了。"
+  },
+  {
+    "rowID": 109,
+    "start_time": "00:12:23",
+    "end_time": "00:12:24",
+    "speaker": 0,
+    "text": "商业航天涨，"
+  },
+  {
+    "rowID": 110,
+    "start_time": "00:12:24",
+    "end_time": "00:12:25",
+    "speaker": 0,
+    "text": "你买的就是商业航天了。"
+  },
+  {
+    "rowID": 111,
+    "start_time": "00:12:26",
+    "end_time": "00:12:26",
+    "speaker": 0,
+    "text": "对吧，"
+  },
+  {
+    "rowID": 112,
+    "start_time": "00:12:26",
+    "end_time": "00:12:29",
+    "speaker": 0,
+    "text": "老灯连涨3个月你就买老灯了，"
+  },
+  {
+    "rowID": 113,
+    "start_time": "00:12:29",
+    "end_time": "00:12:32",
+    "speaker": 0,
+    "text": "本质其实很多人都是跟风在做。"
+  },
+  {
+    "rowID": 114,
+    "start_time": "00:12:33",
+    "end_time": "00:12:35",
+    "speaker": 0,
+    "text": "他不是真把这个事儿整明白了，"
+  },
+  {
+    "rowID": 115,
+    "start_time": "00:12:36",
+    "end_time": "00:12:37",
+    "speaker": 0,
+    "text": "这个大家能理解大的，"
+  },
+  {
+    "rowID": 116,
+    "start_time": "00:12:37",
+    "end_time": "00:12:39",
+    "speaker": 0,
+    "text": "所以说我是希望大家能理解，"
+  },
+  {
+    "rowID": 117,
+    "start_time": "00:12:39",
+    "end_time": "00:12:41",
+    "speaker": 0,
+    "text": "科技还会改变世界的，"
+  },
+  {
+    "rowID": 118,
+    "start_time": "00:12:41",
+    "end_time": "00:12:44",
+    "speaker": 0,
+    "text": "科技还是有很多炒作的，"
+  },
+  {
+    "rowID": 119,
+    "start_time": "00:12:44",
+    "end_time": "00:12:46",
+    "speaker": 0,
+    "text": "还会有很多行情的。"
+  },
+  {
+    "rowID": 120,
+    "start_time": "00:12:47",
+    "end_time": "00:12:48",
+    "speaker": 0,
+    "text": "今年有，"
+  }
+]

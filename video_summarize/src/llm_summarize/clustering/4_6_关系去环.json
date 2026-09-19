@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "判定": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "主题1": {"type": "string"},
+          "主题2": {"type": "string"},
+          "关系": {"type": "string", "enum": ["父子", "无关", "相同"]},
+          "父": {"type": "string"}
+        },
+        "required": ["主题1", "主题2", "关系"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["判定"]
+}

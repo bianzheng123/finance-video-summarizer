@@ -1,0 +1,23 @@
+[TASK]
+{{ task_rules }}
+
+请逐条判定 [DATABASE] 中的候选是否为真敏感信号，输出严格 JSON。
+[/TASK]
+
+[DATA]
+{{ subtitle_text }}
+[/DATA]
+{% if annotation_text %}
+[ANNOTATION]
+{{ annotation_text }}
+[/ANNOTATION]
+{% endif %}
+
+[DATABASE]
+【正则粗筛出的候选清单】
+{{ payload | tojson }}
+[/DATABASE]
+
+[ROWID]
+{{ rowid_scope | tojson }}
+[/ROWID]

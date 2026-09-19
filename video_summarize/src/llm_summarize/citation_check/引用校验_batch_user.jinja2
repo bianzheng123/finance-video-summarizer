@@ -1,0 +1,21 @@
+[TASK]
+{{ task_rules }}
+
+【待校验条目清单】（共 {{ items | length }} 条，结果数组按此顺序逐条对齐）
+{{ items | tojson }}
+
+请对清单中每个条目分别做内容支撑性校验。
+[/TASK]
+
+[DATA]
+{{ subtitle_text }}
+[/DATA]
+{% if annotation_text %}
+[ANNOTATION]
+{{ annotation_text }}
+[/ANNOTATION]
+{% endif %}
+
+[ROWID]
+{{ rowid_scope | tojson }}
+[/ROWID]

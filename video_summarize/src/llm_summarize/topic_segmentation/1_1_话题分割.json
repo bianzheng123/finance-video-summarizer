@@ -1,0 +1,43 @@
+{
+  "type": "object",
+  "properties": {
+    "话题分割": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "开始行号": {"type": "integer", "minimum": 1},
+          "结束行号": {"type": "integer", "minimum": 1},
+          "话题标签": {"type": "string"},
+          "事件": {"type": "string"},
+          "是否重要": {"type": "boolean"},
+          "困惑": {"type": "boolean"},
+          "困惑原因": {"type": "string"}
+        },
+        "required": ["开始行号", "结束行号", "话题标签", "事件", "是否重要", "困惑", "困惑原因"]
+      }
+    }
+  },
+  "字幕知识": {
+    "type": "array",
+    "items": {
+      "type": "object",
+      "properties": {
+        "词": {"type": "string", "minLength": 1},
+        "解释": {"type": "string", "minLength": 1},
+        "解释行号": {
+          "type": "object",
+          "properties": {
+            "开始": {"type": "integer", "minimum": 1},
+            "结束": {"type": "integer", "minimum": 1}
+          },
+          "required": ["开始", "结束"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["词", "解释", "解释行号"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["话题分割"]
+}
