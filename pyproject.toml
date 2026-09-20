@@ -30,7 +30,6 @@ dependencies = [
     "tenacity>=8.0.0",
     "tencentcloud-sdk-python",
     "tqdm>=4.67.0",
-    "weasyprint>=68.0",
     "yt-dlp>=2026.3.0",
 ]
 
@@ -39,6 +38,8 @@ dependencies = [
 market = ["akshare>=1.18.0"]
 # token 精确计数（缺失时退化为启发式估算）
 tokenize = ["transformers>=4.0.0"]
+# PDF 导出（Windows 依赖 GTK3 运行时，可选；不装则无 summary.pdf，其余产物不受影响）
+pdf = ["weasyprint>=68.0"]
 
 [tool.setuptools]
 packages = ["video_summarize"]

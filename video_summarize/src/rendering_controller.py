@@ -1,7 +1,6 @@
 import json
 from copy import deepcopy
 from pathlib import Path
-from weasyprint import HTML
 import logging
 import sys
 import io
@@ -715,6 +714,10 @@ class SummaryRenderer:
         失败只 warn——PDF 是附件形态的附属产物，不该拖垮整个渲染步骤。
         """
         try:
+            # 惰性导入：仅 PDF 导出需要 weasyprint（Windows 依赖 GTK3 运行时），
+            # 不在此处顶层导入，未安装时 ImportError 由下方 except 捕获、仅告警降级。
+            from weasyprint import HTML
+
             original_levels = {}
             loggers_to_suppress = [
                 'weasyprint', 'weasyprint.layout', 'weasyprint.css',

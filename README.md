@@ -26,6 +26,8 @@
 .
 ├── pyproject.toml          # 依赖声明（uv 管理）
 ├── .env.example            # 环境变量模板
+├── install.bat             # Windows 一键安装脚本
+├── INSTALL_WINDOWS.md      # Windows 零基础安装教程
 └── video_summarize/
     ├── url_video_summarize.py   # 入口：处理 URL 列表
     ├── src/                     # 核心实现
@@ -41,6 +43,13 @@
     ├── assets/                  # 渲染用图片
     └── test/                    # 单元测试（全程 mock 不触网）
 ```
+
+## Windows 安装（零基础新手）
+
+Windows 用户请看专门的新手教程 → **[INSTALL_WINDOWS.md](INSTALL_WINDOWS.md)**：
+
+- 想省事：装个 CodeBuddy（AI 代码编辑器），把教程里的「一键安装提示词」粘贴给它，AI 自动帮你装好环境。
+- 或者：双击仓库里的 `install.bat`，脚本自动装 Python / uv / ffmpeg / 依赖。
 
 ## 快速开始
 
