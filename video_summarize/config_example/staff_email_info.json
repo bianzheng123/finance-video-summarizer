@@ -1,8 +1,0 @@
-[
-  {
-    "email": "staff@example.com",
-    "name": "示例员工",
-    "send_time_start(UTC+8)": "09:00",
-    "send_time_end(UTC+8)": "20:00"
-  }
-]

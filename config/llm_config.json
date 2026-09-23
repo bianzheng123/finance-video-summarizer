@@ -1,0 +1,76 @@
+{
+  "_说明": {
+    "LLM 模型厂商": "DeepSeek（深度求索）",
+    "LLM 模型": "deepseek-v4-flash",
+    "用途": "视频总结的多阶段 LLM 分析",
+    "API Key 申请": "https://platform.deepseek.com",
+    "API 文档": "https://api-docs.deepseek.com",
+    "配套服务": "腾讯云 ASR 语音转写、腾讯云 embedding 向量去重（密钥见 .env）"
+  },
+  "default_profile": "deepseek-v4-flash",
+  "profiles": {
+    "deepseek-v4-flash": {
+      "provider": "deepseek",
+      "model": "deepseek-v4-flash",
+      "base_url": "https://api.deepseek.com",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "thinking": true,
+      "reasoning_effort": "max",
+      "temperature": 0.0,
+      "max_tokens": 393216,
+      "usage_map": {
+        "reasoning": ["completion_tokens_details", "reasoning_tokens"],
+        "cache_hit": ["prompt_cache_hit_tokens"],
+        "cache_miss": ["prompt_cache_miss_tokens"]
+      },
+      "kv_user_id": true
+    }
+  },
+  "stages": {
+    "*": {"reasoning_effort": "medium"},
+
+    "5_3": {"reasoning_effort": "low"},
+    "6_3": {"reasoning_effort": "low"},
+    "7_2": {"reasoning_effort": "low"},
+
+    "1_1": {"reasoning_effort": "medium"},
+    "2_1": {"reasoning_effort": "medium"},
+    "3_1": {"reasoning_effort": "medium"},
+
+    "2_3": {"reasoning_effort": "medium"},
+    "3_2": {"reasoning_effort": "max"},
+    "4_3": {"reasoning_effort": "max"},
+    "4_5_1": {"reasoning_effort": "medium"},
+    "4_5_2": {"reasoning_effort": "low"},
+    "4_6": {"reasoning_effort": "max"},
+    "5_1": {"reasoning_effort": "low"},
+    "5_2": {"reasoning_effort": "max"},
+    "6_1": {"reasoning_effort": "max"},
+    "7_1": {"reasoning_effort": "max"},
+    "6_2": {"reasoning_effort": "medium"},
+
+    "8_1": {"reasoning_effort": "medium"},
+    "8_2": {"reasoning_effort": "medium"},
+    "8_3": {"reasoning_effort": "medium"}
+  },
+  "llm_batch": {
+    "7_1_主题分析": 1,
+    "引用校验": 2,
+    "2_1_粗筛": 4,
+    "2_2_词表判定": 4,
+    "2_3_联网确认": 1,
+    "3_1_关键词与剪枝": 3,
+    "3_2_话题重置": 1,
+    "4_2_关键词合并": 128
+  },
+  "llm_group_count": {
+    "4_4_候选粗筛": 5,
+    "4_7_候选父粗筛": 5
+  },
+  "embedding_dedup": {
+    "threshold": 0.6
+  },
+  "embedding_recall": {
+    "threshold": 0.5
+  }
+}

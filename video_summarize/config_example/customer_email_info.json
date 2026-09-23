@@ -1,8 +1,0 @@
-[
-  {
-    "name": "示例客户",
-    "email": "customer@example.com",
-    "bloggers": ["示例博主A", "示例博主B"],
-    "expire_date": "2026-12-31"
-  }
-]
