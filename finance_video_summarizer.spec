@@ -31,7 +31,7 @@ for name in ("database", "config"):
             rel = os.path.relpath(path, SPECPATH)
             datas.append((path, os.path.dirname(rel)))
 
-# ---- weasyprint（GUI 默认内置 PDF）：收集其数据文件与动态库 ----
+# ---- weasyprint（PDF 回退路径，主路径用系统 Edge/Chrome 无头）：收集其数据文件与动态库 ----
 wp_datas, wp_binaries, wp_hiddenimports = collect_all("weasyprint")
 
 a = Analysis(

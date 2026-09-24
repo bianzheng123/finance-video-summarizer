@@ -27,7 +27,7 @@
 | 入口 | 适合谁 | 怎么用 |
 |---|---|---|
 | **命令行 / 可编程** | 懂代码、要批量或自动化 | `uv run python url_video_summarize.py --url <视频URL>`（或读 `config/video_url.json` 批量） |
-| **桌面 GUI** | 不懂代码的新手 | `uv run python desktop_app.py`，图形界面里粘贴链接一键总结 |
+| **桌面 GUI** | 不懂代码的新手 | `uv run python desktop_app.py`，图形界面里粘贴链接（可多个并行）一键总结 |
 
 两者共享同一套核心逻辑（`src/summarize_entry.py` 的 `summarize_url`），产物完全一致。
 
@@ -42,10 +42,11 @@
 ├── url_video_summarize.py  # 命令行入口：处理单个/批量 URL
 ├── desktop_app.py          # 桌面 GUI 启动器
 ├── finance_video_summarizer.spec  # PyInstaller 打包配置
-├── script/                 # 脚本：费用统计 + Windows/macOS 打包/安装
+├── script/                 # 脚本：费用报告 + Windows/macOS 打包/安装
 ├── src/                    # 核心实现
 │   ├── summarize_entry.py  # 可复用总结入口（CLI 与 GUI 共用）
-│   ├── desktop/            # 桌面 GUI（设置页/后台任务/日志面板）
+│   ├── summary_cost.py     # LLM token 用量与费用计算（CLI 报告与 GUI 费用显示共用）
+│   ├── desktop/            # 桌面 GUI（设置页/后台任务/日志面板/进度与费用展示）
 │   ├── client/             # 多平台视频信息（bilibili/youtube/douyin）
 │   ├── recognize_subtitle/ # ASR 字幕识别
 │   ├── llm_infra/          # LLM 调用层（配置/落盘/重试/并发）
@@ -146,7 +147,7 @@ summary_data/bilibili/钱博士直播回放/钱博士_直播回放 2026.8.6/
 ├── rendering/                       # 完整版渲染产物（下面四种文件）
 │   ├── summary.md                   # Markdown 报告
 │   ├── summary.html                 # 完整版 HTML
-│   ├── summary.pdf                  # PDF（需 weasyprint）
+│   ├── summary.pdf                  # PDF（默认生成，无需安装额外组件）
 │   └── summary_structured.html      # 结构化折叠式 HTML
 └── rendering_economic/              # 经济版渲染产物（同样四种文件）
 ```
@@ -170,7 +171,15 @@ summary_data/bilibili/钱博士直播回放/钱博士_直播回放 2026.8.6/
 
 ## 桌面 GUI
 
-桌面程序（PySide6）面向不懂代码的新手：图形界面里粘贴视频链接 → 一键总结 → 实时显示当前阶段与日志 → 完成后弹窗提示，一键用系统默认程序打开 `summary.html` / `summary.pdf`，或打开输出文件夹。
+桌面程序（PySide6）面向不懂代码的新手，左侧边栏分三页：**总结 / 日志 / 设置**。
+
+- **总结页（主界面）**：顶部有「产物说明」（产物清单 + 目录结构 + 使用方式）。每个视频 URL 一个独立输入框（点「＋ 添加 URL」新增、点「删除」移除），每个框可单独勾选「经济版」。填写后点「开始总结」，每个 URL 一条**百分比进度条**，右侧显示当前在做的事（如「正在做：语音识别」），下方显示**预计剩余时间**：
+  - 完整版 9 个节点：`语音识别 → 话题分割 → 词级 → 剪枝 → 聚类 → 宏观 → 交易 → 主题 → 渲染`；
+  - 经济版 3 个节点：`语音识别 → 宏观 → 渲染`（跳过预处理与板块分析）。
+  - 剩余时间按「视频时长 × 耗时系数」估算（完整版约 0.5×，经济版约 0.1×），进度超过 20% 后切换为按实际速度外推，越跑越准。
+  - 每卡同时显示状态徽标（等待 / 运行中 / 成功 / 失败），成功后卡片显示本次 **LLM 费用（¥）**，「打开产物」按钮可用；整批完成后汇总栏直接显示「成功/失败数 + 费用合计」（不弹窗），旁边常驻「打开输出目录」按钮。
+- **日志页**：顶部「全局日志」收应用级消息，下面每个 URL 一个可折叠日志面板，实时滚动。
+- **设置页**：两块表单——「API 密钥」（DeepSeek / 腾讯云密钥，标 * 为必填）与「运行配置」（并发数）。
 
 开发态运行：
 
@@ -179,7 +188,7 @@ uv sync
 uv run python desktop_app.py
 ```
 
-首次启动会弹出设置页，在界面里填写 DEEPSEEK / 腾讯云密钥并保存到应用目录下的 `.env`（无需手动编辑文件）。`uv sync` 已默认装齐全部依赖（含 weasyprint，PDF 开箱即用）。
+首次启动会切到「设置」页，在界面里填写 DEEPSEEK / 腾讯云密钥并保存到应用目录下的 `.env`（无需手动编辑文件）。并发数（1–8，默认 2）同样在设置页修改；界面字体固定 12pt，不开放调整。PDF 默认通过系统自带 Edge/Chrome 无头模式生成，开箱即用、无需额外安装组件。
 
 ## 打包发布
 

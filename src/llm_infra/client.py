@@ -30,6 +30,7 @@ from langchain_core.messages import (
     SystemMessage,
     ToolMessage,
 )
+from .cancel import check_cancelled
 from .config import (
     build_extra_body,
     effective_config,
@@ -396,6 +397,7 @@ class LLMClient:
             非 JSONDecodeError / ValidationError 的异常），坏输出都必须先落盘
             再抛出交给重试——凡调用了 LLM，其状态与结果必须落盘。
             """
+            check_cancelled()  # 用户主动取消：在真正发出请求前拦截（含重试循环）
             try:
                 with RESOURCE_MANAGER.llm(eff["model"]):
                     ai_msg = bound.invoke(messages)
@@ -556,6 +558,7 @@ class LLMClient:
         def _lead_first_round() -> None:
             nonlocal leader_first_msg, leader_first_exc
             rec = _InvokeFailureRecorder()
+            check_cancelled()  # 用户主动取消：预热首请求发出前拦截
             try:
                 with RESOURCE_MANAGER.llm(eff["model"]):
                     leader_first_msg = build_retrying()(
@@ -633,6 +636,7 @@ class LLMClient:
                 logger.warning("LLM 概览日志落盘失败（%s）: %s", log_name, e)
 
         for round_i in range(1, max_rounds + 1):
+            check_cancelled()  # 用户主动取消：每轮（含工具调用轮）发出请求前拦截
             round_attempt = 0
             recorder = _InvokeFailureRecorder()
             if next_correction:

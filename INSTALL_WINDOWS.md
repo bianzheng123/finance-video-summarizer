@@ -195,9 +195,9 @@ uv run python desktop_app.py
 
 ### 1. 没有生成 summary.pdf 怎么办？
 
-`uv sync` 已默认装齐全部依赖（含 weasyprint），正常情况下 GUI 和命令行都能直接生成 `summary.pdf`。
+PDF **默认生成**：程序会优先调用 Windows 自带的 Edge 浏览器无头模式把 `summary.html` 转成 `summary.pdf`，无需安装任何额外组件（Win10/11 都自带 Edge）。
 
-如果确实没生成：先看运行日志里有没有「PDF导出失败」的告警；weasyprint 在 Windows 上还依赖 GTK3 运行时，若报缺 cairo / pango 库，需按 weasyprint 官方指引补装 GTK3 运行时。
+如果确实没生成：先看运行日志里有没有「无头浏览器导出 PDF 失败 / 未找到可用浏览器」的告警——这通常说明系统 Edge 被卸载或不在默认路径。此时程序会回退到 weasyprint（需另装 GTK 运行时），仍失败才会跳过 PDF。
 
 ### 2. 提示「ffmpeg 找不到」或「ffprobe 找不到」？
 

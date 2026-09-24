@@ -24,6 +24,8 @@ import time
 
 from tenacity import RetryCallState, Retrying, retry_if_exception, wait_exponential_jitter
 
+from .cancel import PipelineCancelled
+
 logger = logging.getLogger(__name__)
 
 # openai SDK 原生重试次数：关掉，重试统一收拢到本模块的 tenacity 层。
@@ -55,7 +57,8 @@ _OVERLOAD_EXCEPTION_NAMES = {
 }
 
 # 视为「客户端致命错误、重放必败」的 HTTP 状态码——命中即不重试、单次放弃。
-_FATAL_STATUS_CODES = {400, 401, 403, 404, 422}
+# 402（余额不足）也在此列：重放相同请求不可能成功，应立即失败并让 GUI 提示充值。
+_FATAL_STATUS_CODES = {400, 401, 402, 403, 404, 422}
 
 # 按类名匹配的 openai 客户端致命异常（与过载集合同理，避免硬依赖 openai 导入
 # 路径）。注意：jsonschema 的 ValidationError 不在此列，schema 校验失败仍走
@@ -90,6 +93,8 @@ def _is_overload_error(exc: BaseException) -> bool:
 def _is_fatal_error(exc: BaseException) -> bool:
     """判断异常是否为客户端致命错误（重放相同请求不可能成功，如缺
     reasoning_content 回传的 400）。命中即不重试、单次放弃。"""
+    if isinstance(exc, PipelineCancelled):
+        return True  # 用户主动取消：立即停止、穿透，不做任何重试
     status = getattr(exc, "status_code", None)
     if isinstance(status, int) and status in _FATAL_STATUS_CODES:
         return True

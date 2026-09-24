@@ -1,7 +1,8 @@
-"""设置弹窗：填写 DEEPSEEK / 腾讯云 key，读写 exe 旁（或项目根）的 .env。
+"""设置读写：API Key 字段清单 + 界面偏好（并发数）的 .env 读写。
 
-字段清单对齐仓库根 ``.env.example``。密码类字段用掩码显示；保存时用 python-dotenv 的
-``set_key`` / ``unset_key`` 写回 .env，并立即回写 ``os.environ`` 供当前进程使用。
+纯数据读写层，不含任何 UI：字段清单与保存逻辑供 :mod:`settings_page` 使用；
+密码类字段在上层用掩码显示。保存统一走 python-dotenv 的 ``set_key`` / ``unset_key``
+写回 .env，并立即回写 ``os.environ`` 供当前进程使用。
 """
 
 from __future__ import annotations
@@ -9,15 +10,6 @@ from __future__ import annotations
 import os
 
 from dotenv import set_key, unset_key
-from PySide6.QtWidgets import (
-    QDialog,
-    QDialogButtonBox,
-    QFormLayout,
-    QGroupBox,
-    QLabel,
-    QLineEdit,
-    QVBoxLayout,
-)
 
 from .env_loader import env_path
 
@@ -32,14 +24,20 @@ SETTINGS_FIELDS: list[tuple[str, str, str, bool]] = [
     ("TENCENT_COS_REGION", "腾讯云 COS 地域", "COS", False),
 ]
 
+# 界面偏好（非敏感，持久化到应用 .env）。
+CONCURRENCY_KEY = "DESKTOP_CONCURRENCY"
+DEFAULT_CONCURRENCY = 2
+CONCURRENCY_MIN = 1
+CONCURRENCY_MAX = 8
+
 
 def read_settings() -> dict[str, str]:
-    """从 os.environ 读取当前配置（已由 load_app_env 填充）。"""
+    """从 ``os.environ`` 读取当前 API Key 配置（已由 ``load_app_env`` 填充）。"""
     return {key: (os.environ.get(key) or "") for key, *_ in SETTINGS_FIELDS}
 
 
 def save_settings(values: dict[str, str]) -> None:
-    """把字段值写回 .env 并立即刷新 os.environ。空值从 .env 移除。"""
+    """把 API Key 字段值写回 .env 并立即刷新 ``os.environ``。空值从 .env 移除。"""
     path = env_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     for key, *_ in SETTINGS_FIELDS:
@@ -52,63 +50,26 @@ def save_settings(values: dict[str, str]) -> None:
             os.environ.pop(key, None)
 
 
-class SettingsDialog(QDialog):
-    """API Key 配置弹窗。分组展示 LLM / ASR / COS 字段，必填项缺失时提示。"""
+def _read_int(key: str, default: int) -> int:
+    """读取整型 env 偏好，非法值回退默认。"""
+    try:
+        return int((os.environ.get(key) or "").strip() or default)
+    except ValueError:
+        return default
 
-    def __init__(self, parent=None) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("配置 API Key")
-        self.setMinimumWidth(520)
 
-        self._edits: dict[str, QLineEdit] = {}
-        self._required_keys: set[str] = {key for key, *_ , req in SETTINGS_FIELDS if req}
+def _save_int(key: str, value: int) -> None:
+    """整型偏好写 .env 并回写 ``os.environ``。"""
+    set_key(str(env_path()), key, str(value))
+    os.environ[key] = str(value)
 
-        layout = QVBoxLayout(self)
 
-        intro = QLabel(
-            "首次使用请填写以下密钥，保存后会写入应用目录下的 .env 文件。\n"
-            "（可随时从主窗口「设置」按钮重新修改）"
-        )
-        intro.setWordWrap(True)
-        layout.addWidget(intro)
+def read_concurrency() -> int:
+    """读取同时处理几个视频的并发数，缺省 2；越界钳制到合法区间。"""
+    value = _read_int(CONCURRENCY_KEY, DEFAULT_CONCURRENCY)
+    return max(CONCURRENCY_MIN, min(CONCURRENCY_MAX, value))
 
-        # 按分组归组字段
-        groups: dict[str, QFormLayout] = {}
-        for key, label, group, _required in SETTINGS_FIELDS:
-            if group not in groups:
-                box = QGroupBox(group)
-                form = QFormLayout(box)
-                layout.addWidget(box)
-                groups[group] = form
-            edit = QLineEdit()
-            if key.endswith("_KEY") or key == "TENCENT_SECRET_KEY":
-                edit.setEchoMode(QLineEdit.EchoMode.Password)
-            display = label if not _required else f"{label} *"
-            groups[group].addRow(display, edit)
-            self._edits[key] = edit
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self._on_save)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
-
-        # 预填当前值
-        current = read_settings()
-        for key, edit in self._edits.items():
-            edit.setText(current.get(key, ""))
-
-    def _on_save(self) -> None:
-        values = {key: edit.text() for key, edit in self._edits.items()}
-        missing = [key for key in self._required_keys if not (values.get(key) or "").strip()]
-        if missing:
-            from PySide6.QtWidgets import QMessageBox
-
-            QMessageBox.warning(
-                self, "缺少必填项",
-                "以下必填项未填写：\n" + "\n".join(f"- {key}" for key in missing),
-            )
-            return
-        save_settings(values)
-        self.accept()
+def save_concurrency(value: int) -> None:
+    """保存并发数（越界钳制到合法区间）。"""
+    _save_int(CONCURRENCY_KEY, max(CONCURRENCY_MIN, min(CONCURRENCY_MAX, value)))

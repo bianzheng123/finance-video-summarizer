@@ -62,7 +62,7 @@ def _print_result(result: SummarizeResult) -> None:
     print("\n生成产物：")
     print(f"  HTML（完整版） : {result.summary_html}")
     print(f"  HTML（折叠式） : {result.summary_structured_html}")
-    print(f"  PDF           : {result.summary_pdf or '（未生成，需 weasyprint）'}")
+    print(f"  PDF           : {result.summary_pdf or '（未生成）'}")
     print(f"  Markdown      : {result.summary_md}")
     print(f"  输出目录       : {result.save_path}")
 

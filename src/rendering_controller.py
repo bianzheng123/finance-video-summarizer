@@ -1,9 +1,12 @@
-import json
-from pathlib import Path
-import logging
-import sys
 import io
+import json
+import logging
+import os
+import shutil
+import subprocess
+import sys
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from .rendering.rendering_base import BaseRenderer
@@ -700,14 +703,66 @@ class SummaryRenderer:
         return {name: "".join(parts) for name, parts in renderer_parts.items()}
 
     @staticmethod
-    def _export_pdf(html_file: Path, pdf_file: Path) -> None:
-        """由 HTML 导出 PDF；weasyprint / fontTools 的噪声日志与直接打印一并抑制。
+    def _find_browser() -> str | None:
+        """查找可用的无头浏览器可执行文件；优先 Windows 自带 Edge（零安装），再查 PATH。"""
+        if sys.platform == "win32":
+            # Windows 常见安装路径：Edge 几乎每台 Win10/11 都有。
+            for env in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"):
+                base = os.environ.get(env)
+                if not base:
+                    continue
+                for rel in (
+                    r"Microsoft\Edge\Application\msedge.exe",
+                    r"Google\Chrome\Application\chrome.exe",
+                    r"Chromium\Application\chrome.exe",
+                ):
+                    p = Path(base) / rel
+                    if p.exists():
+                        return str(p)
+        for name in (
+            "msedge", "microsoft-edge", "chrome", "chromium",
+            "google-chrome", "google-chrome-stable", "brave-browser",
+        ):
+            found = shutil.which(name)
+            if found:
+                return found
+        return None
 
-        失败只 warn——PDF 是附件形态的附属产物，不该拖垮整个渲染步骤。
+    @staticmethod
+    def _export_pdf(html_file: Path, pdf_file: Path) -> None:
+        """由 HTML 导出 PDF：优先系统自带 Edge/Chrome 无头模式（零额外安装），
+        weasyprint 仅作回退。失败只 warn——PDF 是附件形态的附属产物，不该拖垮渲染。
         """
+        browser = SummaryRenderer._find_browser()
+        if browser:
+            try:
+                cmd = [
+                    browser,
+                    "--headless",
+                    "--disable-gpu",
+                    "--no-pdf-header-footer",
+                    f"--print-to-pdf={pdf_file}",
+                    html_file.resolve().as_uri(),
+                ]
+                proc = subprocess.run(cmd, capture_output=True, timeout=120)
+                if proc.returncode == 0 and pdf_file.exists():
+                    logger.info("PDF已保存: %s", pdf_file)
+                    return
+                logger.warning(
+                    "无头浏览器导出 PDF 失败（returncode=%s），回退 weasyprint", proc.returncode,
+                )
+            except Exception as e:  # noqa: BLE001 — 无头浏览器失败只降级，不影响渲染主流程
+                logger.warning("无头浏览器导出 PDF 异常（%s），回退 weasyprint", e)
+        else:
+            logger.warning("未找到可用浏览器，回退 weasyprint 导出 PDF")
+        SummaryRenderer._export_pdf_weasyprint(html_file, pdf_file)
+
+    @staticmethod
+    def _export_pdf_weasyprint(html_file: Path, pdf_file: Path) -> None:
+        """回退路径：weasyprint 导出 PDF（Windows 依赖 GTK3 运行时，未安装则告警跳过）。"""
         try:
-            # 惰性导入：仅 PDF 导出需要 weasyprint（Windows 依赖 GTK3 运行时），
-            # 不在此处顶层导入，未安装时 ImportError 由下方 except 捕获、仅告警降级。
+            # 惰性导入：仅 PDF 导出需要 weasyprint，不在此处顶层导入，
+            # 未安装时 ImportError 由下方 except 捕获、仅告警降级。
             from weasyprint import HTML
 
             original_levels = {}

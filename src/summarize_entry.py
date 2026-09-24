@@ -25,16 +25,13 @@ from .utils.video_metadata import save_metadata
 
 logger = logging.getLogger(__name__)
 
-analyzer = LLMAnalyzer()
-renderer = RenderingController()
-
 
 @dataclass
 class SummarizeResult:
     """一次总结的完整产物路径。
 
-    ``summary_pdf`` 依赖可选包 weasyprint，缺失时渲染会降级为告警、不生成 PDF，
-    故此处按文件是否存在返回 ``None``。
+    ``summary_pdf`` 由渲染期生成（优先系统 Edge/Chrome 无头模式，weasyprint 回退），
+    极少数两种方式都失败时会降级为告警、不生成 PDF，故此处按文件是否存在返回 ``None``。
     """
 
     save_path: Path
@@ -63,10 +60,17 @@ def summarize_and_render(
 
     经济版（economic=True）会把分析与渲染切换到 llm_analysis_economic / rendering_economic。
     返回 analysis dict，调用方可用于后续操作（如发邮件）。
+
+    并发安全：analyzer 与 renderer 每次调用新建，不复用模块级单例——`LLMAnalyzer`
+    内部的 `WordLevelStep` 持有每视频可变状态（SharedFindings / SharedCorrectionHints /
+    subtitle_knowledge / publish_date），复用会在多视频并发时按 rowID 串场污染。重资源
+    （RESOURCE_MANAGER 全局线程池与 LLM/WSA 并发闸）仍是进程内单例，不受此改动影响。
     """
     if analysis is None:
+        analyzer = LLMAnalyzer()
         analysis = analyzer.summarize(output_dir, subtitle_l, economic=economic)
     with step_logger("渲染"):
+        renderer = RenderingController()
         renderer.render_save(
             output_dir, analysis, bvid=bvid, author=author, title=title, economic=economic,
         )

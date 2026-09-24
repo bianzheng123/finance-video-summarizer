@@ -1,231 +1,261 @@
-"""桌面主窗口：URL 输入 → 后台总结 → 实时日志 → 完成通知与打开产物。
+"""桌面主窗口：左侧边栏（总结 / 日志 / 设置）+ 三页切换。
 
-日志实时展示：主线程 QTimer 周期性从 ``QueueLogHandler`` 队列 drain（队列线程安全，
-worker 及其派生子线程在 push 端、主线程在 pull 端），故 worker 无需也不应跨线程直接
-调用 UI，只通过 ``succeeded`` / ``failed`` 信号回报终态。
+外壳只负责三件事：导航、任务调度、日志双路由。
+
+- **导航**：``QListWidget`` 侧边栏 + ``QStackedWidget`` 三页（总结页 / 日志页 / 设置页）。
+- **任务调度**：总结页通过 ``start_requested`` 信号把 ``(task_id, url, economic)`` 列表交给
+  外壳，外壳按并发上限（``read_concurrency()``）用 ``SummarizeWorker``（QThread）调度。
+- **日志双路由**：主线程 ``QTimer`` 周期性从 ``QueueLogHandler`` 队列 drain，按 ``task_id``
+  把每条 ``LogLine`` 同时路由到日志页（追加文本）与总结页（按 ``step`` 推进度）；无
+  ``task_id`` 的日志只进日志页全局面板。
 """
 
 from __future__ import annotations
 
 import logging
 import sys
-from pathlib import Path
+from collections import deque
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QTimer, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtWidgets import (
     QApplication,
-    QCheckBox,
-    QFileDialog,
+    QButtonGroup,
     QHBoxLayout,
-    QLabel,
-    QLineEdit,
     QMainWindow,
-    QMessageBox,
-    QPlainTextEdit,
     QPushButton,
+    QSizePolicy,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
+from ..summary_cost import compute_cost
 from .env_loader import app_root, is_configured, load_app_env
+from .log_page import LogPage
 from .log_stream import QueueLogHandler
-from .settings import SettingsDialog
+from .settings import read_concurrency
+from .settings_page import SettingsPage
+from .summary_page import SummaryPage
+from .theme import apply_theme
 from .worker import SummarizeWorker
 
 if TYPE_CHECKING:
     from ..summarize_entry import SummarizeResult
 
 _POLL_INTERVAL_MS = 200
-_MAX_LOG_LINES = 2000
+# 全局基础字号固定 12pt（不开放给用户调整，避免设置项膨胀）。
+_FONT_SIZE = 12
+
+# 侧边栏三页索引（与 QListWidget 顺序一致）。
+_PAGE_SUMMARY = 0
+_PAGE_LOG = 1
+_PAGE_SETTINGS = 2
+
+
+def _apply_app_font(app: QApplication) -> None:
+    """全局放大基础字体，解决默认字体过小看不清的问题。"""
+    font = app.font()
+    font.setPointSize(_FONT_SIZE)
+    app.setFont(font)
+
+
+def _mono_font() -> QFont:
+    """日志区等宽字体（比基础字号小 1pt，保证对齐与信息密度）。"""
+    font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+    font.setPointSize(max(9, _FONT_SIZE - 1))
+    return font
 
 
 class MainWindow(QMainWindow):
-    """主窗口：输入区（URL / 完整版经济版 / 输出目录）+ 只读日志面板 + 状态栏。"""
+    """主窗口外壳：侧边栏 + 三页，负责任务调度与日志双路由。"""
 
     def __init__(self, log_handler: QueueLogHandler) -> None:
         super().__init__()
         self.setWindowTitle("财经视频总结")
-        self.resize(920, 660)
+        self.resize(1080, 780)
 
         self._log_handler = log_handler
-        self._worker: SummarizeWorker | None = None
-        self._last_step = ""
+        self._pending: deque[tuple[str, str, bool]] = deque()
+        self._running = 0
+        self._concurrency = read_concurrency()
+        self._task_status: dict[str, str] = {}
+        self._task_economic: dict[str, bool] = {}
+        self._task_results: dict[str, "SummarizeResult"] = {}
+        self._task_costs: dict[str, float] = {}
+        self._workers: dict[str, SummarizeWorker] = {}
 
         central = QWidget()
         self.setCentralWidget(central)
-        root = QVBoxLayout(central)
+        root = QHBoxLayout(central)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
-        # 输入区
-        url_row = QHBoxLayout()
-        url_row.addWidget(QLabel("视频 URL："))
-        self._url_edit = QLineEdit()
-        self._url_edit.setPlaceholderText("粘贴 B 站 / YouTube / 抖音 视频链接后回车")
-        self._url_edit.returnPressed.connect(self._on_start)
-        url_row.addWidget(self._url_edit, 1)
-        root.addLayout(url_row)
+        # ---- 侧边栏（三个栏目均分高度填满） ----
+        self._sidebar = QWidget()
+        self._sidebar.setObjectName("Sidebar")
+        self._sidebar.setFixedWidth(160)
+        side_layout = QVBoxLayout(self._sidebar)
+        side_layout.setContentsMargins(0, 0, 0, 0)
+        side_layout.setSpacing(0)
+        self._nav_group = QButtonGroup(self)
+        self._nav_group.setExclusive(True)
+        for index, name in enumerate(["总结", "日志", "设置"]):
+            btn = QPushButton(name)
+            btn.setObjectName("NavButton")
+            btn.setCheckable(True)
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            side_layout.addWidget(btn, 1)
+            self._nav_group.addButton(btn, index)
+        self._nav_group.idClicked.connect(self._on_nav)
+        root.addWidget(self._sidebar)
 
-        opt_row = QHBoxLayout()
-        self._economic_check = QCheckBox("经济版（只做宏观分析，更快更省 token）")
-        opt_row.addWidget(self._economic_check)
-        opt_row.addWidget(QLabel("输出目录："))
-        self._output_edit = QLineEdit(str(app_root() / "summary_data"))
-        opt_row.addWidget(self._output_edit, 1)
-        browse_btn = QPushButton("浏览…")
-        browse_btn.clicked.connect(self._on_browse)
-        opt_row.addWidget(browse_btn)
-        root.addLayout(opt_row)
+        # ---- 三页 ----
+        self._stack = QStackedWidget()
+        self._summary_page = SummaryPage()
+        self._log_page = LogPage(_mono_font())
+        self._settings_page = SettingsPage()
+        self._stack.addWidget(self._summary_page)
+        self._stack.addWidget(self._log_page)
+        self._stack.addWidget(self._settings_page)
+        root.addWidget(self._stack, 1)
 
-        btn_row = QHBoxLayout()
-        self._start_btn = QPushButton("开始总结")
-        self._start_btn.clicked.connect(self._on_start)
-        btn_row.addWidget(self._start_btn)
-        settings_btn = QPushButton("设置")
-        settings_btn.clicked.connect(self.open_settings)
-        btn_row.addWidget(settings_btn)
-        open_dir_btn = QPushButton("打开输出目录")
-        open_dir_btn.clicked.connect(self._open_output_dir)
-        btn_row.addWidget(open_dir_btn)
-        btn_row.addStretch(1)
-        root.addLayout(btn_row)
+        self._summary_page.start_requested.connect(self._on_start)
+        self._summary_page.stop_requested.connect(self._on_stop)
+        self._summary_page.settings_requested.connect(self.navigate_to_settings)
 
-        # 日志区
-        root.addWidget(QLabel("运行日志："))
-        self._log_view = QPlainTextEdit()
-        self._log_view.setReadOnly(True)
-        self._log_view.setMaximumBlockCount(_MAX_LOG_LINES)
-        root.addWidget(self._log_view, 1)
+        self._nav_group.button(_PAGE_SUMMARY).setChecked(True)
 
-        # 状态栏：当前阶段
-        self._step_label = QLabel("就绪")
-        self.statusBar().addWidget(self._step_label)
-
-        # 日志轮询
+        # ---- 日志轮询 ----
         self._timer = QTimer(self)
         self._timer.setInterval(_POLL_INTERVAL_MS)
         self._timer.timeout.connect(self._poll_logs)
         self._timer.start()
 
-    # ---- 事件处理 ----
+    # ---- 导航 ----
+    def _on_nav(self, row: int) -> None:
+        self._stack.setCurrentIndex(row)
 
-    def _on_start(self) -> None:
-        if self._worker is not None and self._worker.isRunning():
+    def navigate_to_settings(self) -> None:
+        self._nav_group.button(_PAGE_SETTINGS).setChecked(True)
+        self._on_nav(_PAGE_SETTINGS)
+
+    # ---- 批次调度 ----
+    def _on_start(self, tasks: list[tuple[str, str, bool]]) -> None:
+        if self._running:
             return
-        url = self._url_edit.text().strip()
-        if not url:
-            QMessageBox.warning(self, "提示", "请先粘贴视频 URL")
-            return
-        if not is_configured():
-            self.open_settings()
-            if not is_configured():
-                return
+        self._concurrency = read_concurrency()
+        self._pending = deque(tasks)
+        self._running = 0
+        self._task_status = {task_id: "等待" for task_id, _url, _eco in tasks}
+        self._task_economic = {task_id: eco for task_id, _url, eco in tasks}
+        self._task_results = {}
+        self._task_costs = {}
+        self._workers = {}
+        self._log_page.reset_tasks(tasks)
+        self._update_summary_bar()
+        self._dispatch()
 
-        output_root = Path(self._output_edit.text().strip() or str(app_root() / "summary_data"))
-        try:
-            output_root.mkdir(parents=True, exist_ok=True)
-        except OSError:
-            pass
+    def _dispatch(self) -> None:
+        while self._running < self._concurrency and self._pending:
+            self._start_worker(self._pending.popleft())
 
-        self._log_view.clear()
-        self._last_step = ""
-        self._step_label.setText("运行中…")
-        self._start_btn.setEnabled(False)
-
-        self._worker = SummarizeWorker(
+    def _start_worker(self, task: tuple[str, str, bool]) -> None:
+        task_id, url, economic = task
+        self._task_status[task_id] = "运行中"
+        self._summary_page.set_task_status(task_id, "运行中")
+        worker = SummarizeWorker(
             url,
-            economic=self._economic_check.isChecked(),
-            output_root=output_root,
+            task_id=task_id,
+            economic=economic,
+            output_root=self._summary_page.output_root(),
             parent=self,
         )
-        self._worker.succeeded.connect(self._on_succeeded)
-        self._worker.failed.connect(self._on_failed)
-        self._worker.finished.connect(self._on_worker_finished)
-        self._worker.start()
+        worker.succeeded.connect(self._on_succeeded)
+        worker.failed.connect(self._on_failed)
+        worker.cancelled.connect(self._on_cancelled)
+        worker.info_ready.connect(self._summary_page.set_task_duration)
+        worker.finished.connect(lambda tid=task_id: self._on_finished(tid))
+        self._workers[task_id] = worker
+        self._running += 1
+        self._update_summary_bar()
+        worker.start()
 
-    def _on_browse(self) -> None:
-        current = self._output_edit.text().strip() or str(app_root() / "summary_data")
-        chosen = QFileDialog.getExistingDirectory(self, "选择输出目录", current)
-        if chosen:
-            self._output_edit.setText(chosen)
+    def _on_succeeded(self, task_id: str, result: "SummarizeResult") -> None:
+        self._task_status[task_id] = "成功"
+        self._task_results[task_id] = result
+        self._summary_page.set_task_status(task_id, "成功")
+        self._summary_page.set_task_result(task_id, result)
+        # 真实 token 用量费用（落盘日志口径）；tokenizer=False 跳过加载、按官方换算降级，
+        # 避免 GUI/打包环境触发 tokenizer 下载。仅 LLM 费用，ASR/embedding 需看腾讯云账单。
+        cost = compute_cost(
+            result.save_path,
+            tokenizer=False,
+            economic=self._task_economic.get(task_id, False),
+        )
+        if cost is not None:
+            cost_yuan = round(cost["cost_yuan"], 2)
+            self._task_costs[task_id] = cost_yuan
+            self._summary_page.set_task_cost(task_id, cost_yuan)
+        self._update_summary_bar()
 
-    def _open_output_dir(self) -> None:
-        path = Path(self._output_edit.text().strip() or str(app_root() / "summary_data"))
-        try:
-            path.mkdir(parents=True, exist_ok=True)
-        except OSError:
-            pass
-        self._open_path(path)
+    def _on_failed(self, task_id: str, message: str) -> None:
+        self._task_status[task_id] = "失败"
+        self._summary_page.set_task_status(task_id, "失败")
+        self._log_page.append_task_log(task_id, f"[失败] {message}")
+        self._update_summary_bar()
 
-    def open_settings(self) -> None:
-        SettingsDialog(self).exec()
+    def _on_stop(self, task_id: str) -> None:
+        """用户点击「停止」：请求取消对应 worker（在下次 LLM 调用检查点生效）。"""
+        worker = self._workers.get(task_id)
+        if worker is not None and self._task_status.get(task_id) == "运行中":
+            self._log_page.append_task_log(task_id, "[停止] 已请求取消，将在当前步骤结束后生效…")
+            worker.cancel()
+        else:
+            self._log_page.append_task_log(task_id, "[停止] 该任务不在运行中，无法取消")
 
+    def _on_cancelled(self, task_id: str) -> None:
+        self._task_status[task_id] = "已取消"
+        self._summary_page.set_task_status(task_id, "已取消")
+        self._log_page.append_task_log(task_id, "[已取消] 任务已被用户取消")
+        self._update_summary_bar()
+
+    def _on_finished(self, task_id: str) -> None:
+        self._running -= 1
+        self._dispatch()
+        self._update_summary_bar()
+        if self._running == 0 and not self._pending:
+            ok = sum(1 for s in self._task_status.values() if s == "成功")
+            fail = sum(1 for s in self._task_status.values() if s == "失败")
+            cancelled = sum(1 for s in self._task_status.values() if s == "已取消")
+            total_cost = sum(self._task_costs.values()) if self._task_costs else None
+            self._summary_page.on_batch_finished(ok, fail, cancelled, total_cost)
+
+    def _update_summary_bar(self) -> None:
+        total = len(self._task_status)
+        ok = sum(1 for s in self._task_status.values() if s == "成功")
+        fail = sum(1 for s in self._task_status.values() if s == "失败")
+        cancelled = sum(1 for s in self._task_status.values() if s == "已取消")
+        parts = [f"运行中 {self._running}", f"成功 {ok}", f"失败 {fail}"]
+        if cancelled:
+            parts.append(f"已取消 {cancelled}")
+        parts.append(f"共 {total}")
+        self._summary_page.set_summary_label(" · ".join(parts))
+
+    # ---- 日志双路由 ----
     def _poll_logs(self) -> None:
         for line in self._log_handler.drain():
-            self._log_view.appendPlainText(line.text)
-            if line.step and line.step != self._last_step:
-                self._last_step = line.step
-                self._step_label.setText(f"当前阶段：{line.step}")
-
-    def _on_succeeded(self, result: "SummarizeResult") -> None:
-        self._start_btn.setEnabled(True)
-        self._poll_logs()
-        self._step_label.setText("完成")
-        self._show_result_dialog(result)
-
-    def _on_failed(self, message: str) -> None:
-        self._start_btn.setEnabled(True)
-        self._poll_logs()
-        self._step_label.setText("失败")
-        QMessageBox.critical(self, "总结失败", message)
-
-    def _on_worker_finished(self) -> None:
-        # 用 identity 守卫避免「新任务已启动后，旧线程的 finished 误清空新 worker 引用」
-        if self.sender() is self._worker:
-            self._worker = None
-
-    # ---- 结果展示 ----
-
-    def _show_result_dialog(self, result: "SummarizeResult") -> None:
-        box = QMessageBox(self)
-        box.setWindowTitle("总结完成")
-        box.setIcon(QMessageBox.Icon.Information)
-        lines = [
-            "报告已生成：",
-            f"完整版 HTML：{result.summary_html}",
-            f"折叠式 HTML：{result.summary_structured_html}",
-        ]
-        if result.summary_pdf:
-            lines.append(f"PDF：{result.summary_pdf}")
-        else:
-            lines.append("PDF：未生成（需安装 weasyprint）")
-        box.setText("\n".join(lines))
-
-        open_folder_btn = box.addButton("打开输出文件夹", QMessageBox.ButtonRole.AcceptRole)
-        open_full_btn = box.addButton("打开完整版 HTML", QMessageBox.ButtonRole.ActionRole)
-        open_struct_btn = box.addButton("打开折叠式 HTML", QMessageBox.ButtonRole.ActionRole)
-        open_pdf_btn = box.addButton("打开 PDF", QMessageBox.ButtonRole.ActionRole) if result.summary_pdf else None
-        box.addButton("关闭", QMessageBox.ButtonRole.RejectRole)
-
-        box.exec()
-
-        clicked = box.clickedButton()
-        if clicked is open_folder_btn:
-            self._open_path(result.save_path)
-        elif clicked is open_full_btn:
-            self._open_path(result.summary_html)
-        elif clicked is open_struct_btn:
-            self._open_path(result.summary_structured_html)
-        elif open_pdf_btn is not None and clicked is open_pdf_btn:
-            self._open_path(result.summary_pdf)
-
-    @staticmethod
-    def _open_path(path: Path) -> None:
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+            if line.task_id:
+                self._log_page.append_task_log(line.task_id, line.text)
+                if line.step:
+                    self._summary_page.advance_task(line.task_id, line.step)
+            else:
+                self._log_page.append_global_log(line.text)
 
 
 def main() -> None:
-    """GUI 入口：加载 .env → 配置日志桥接 → 启动主窗口。"""
+    """GUI 入口：加载 .env → 配置日志桥接 → 放大字体 → 启动主窗口。"""
     load_app_env()
 
     from ..log_config import install_logging_hooks
@@ -248,13 +278,15 @@ def main() -> None:
 
     app = QApplication(sys.argv)
     app.setApplicationName("财经视频总结")
+    _apply_app_font(app)
+    apply_theme(app)
 
     window = MainWindow(log_handler)
     window.show()
 
-    # 首次运行未配置 → 引导进设置页
+    # 首次运行未配置 → 切到设置页引导填写
     if not is_configured():
-        window.open_settings()
+        window.navigate_to_settings()
 
     sys.exit(app.exec())
 

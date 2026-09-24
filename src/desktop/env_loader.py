@@ -57,3 +57,8 @@ def load_app_env() -> Path:
 def is_configured() -> bool:
     """必填项是否已全部就位（来源：os.environ，已由 load_app_env 填充）。"""
     return all((os.environ.get(k) or "").strip() for k in REQUIRED_KEYS)
+
+
+def missing_required_keys() -> list[str]:
+    """返回缺失的必填项 env key 列表（保持 REQUIRED_KEYS 顺序，便于提示）。"""
+    return [k for k in REQUIRED_KEYS if not (os.environ.get(k) or "").strip()]

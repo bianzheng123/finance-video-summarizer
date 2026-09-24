@@ -30,11 +30,27 @@ def pin_wait_seconds() -> float:
     return float(os.getenv("LLM_PIN_WAIT", "1800"))
 
 
+# 内置默认预热名单：所有需要「串行首请求写缓存」的 LLM 阶段（精确 N_M / N_M_K 键）。
+# 注意 4_5_1 / 4_5_2 是三级键（存疑候选精筛 / 事件候选精筛），不能用二级 4_5 代替——
+# stage_key_of 会提取三级，而 wait_or_lead_prefix 是精确匹配，二级键命中不了。
+# 4_1（embedding 向量去重）与 4_8/4_9/4_10（纯 Python）无 LLM 调用，不在此列。
+_DEFAULT_WARMUP_STAGES = (
+    "1_1,1_2,2_1,2_2,2_3,3_1,3_2,4_2,4_3,4_4,4_5_1,4_5_2,4_6,4_7,"
+    "5_1,5_2,5_3,6_1,6_2,6_3,7_1,7_2,7_4,8_1,8_2,8_3"
+)
+
+
 def _warmup_stages() -> frozenset[str]:
-    """预热阶段名单（env `WARMUP_STAGES`，逗号分隔的**精确 `N_M` 键**，如 `1_1,3_1,5_1`）。"""
-    return frozenset(
-        s.strip() for s in os.getenv("WARMUP_STAGES", "").split(",") if s.strip()
-    )
+    """预热阶段名单：优先读 env `WARMUP_STAGES`（逗号分隔的精确 `N_M`/`N_M_K` 键）。
+
+    用 ``os.environ.get`` 而非 ``os.getenv`` 以区分「未设置」与「显式空串」：
+    - 未设置（None）→ 回退内置默认名单 `_DEFAULT_WARMUP_STAGES`（开箱即预热）；
+    - 显式设为空串 → 返回空集合（允许用户禁用预热）。
+    """
+    raw = os.environ.get("WARMUP_STAGES")
+    if raw is None:
+        raw = _DEFAULT_WARMUP_STAGES
+    return frozenset(s.strip() for s in raw.split(",") if s.strip())
 
 
 class _Gate:

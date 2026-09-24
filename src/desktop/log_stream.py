@@ -7,18 +7,44 @@
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import queue
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+
+# 当前日志所属的任务 ID（多 URL 并行时，每个 URL 一个 task_id）。
+# 用 ContextVar 而非线程局部变量：worker 线程设置后，内部线程池经
+# ``log_config._install_context_propagation`` 的 submit 补丁会把上下文（含 task_id）
+# 带进 LLM worker 线程，从而让该 URL 在任意线程产出的日志都能正确路由回对应面板。
+_task_id: contextvars.ContextVar[str] = contextvars.ContextVar("task_id", default="")
+
+
+@contextmanager
+def task_scope(task_id: str) -> Iterator[None]:
+    """把当前线程（及其派生子线程）的日志打上 ``task_id`` 标签，退出后自动复位。
+
+    与 ``log_config.step_logger`` 同构：设置 ContextVar，yield 后 reset。供
+    ``SummarizeWorker.run`` 在调用 ``summarize_url`` 前包裹，使该 URL 的**全部**日志
+    （含进入 ``session_logger`` 之前的「处理URL」「视频信息」阶段）都能按 task_id 路由。
+    """
+    token = _task_id.set(task_id)
+    try:
+        yield
+    finally:
+        _task_id.reset(token)
 
 
 class LogLine:
-    """一条投递给 UI 的日志：已格式化文本 + 当前步骤标签（可能为空串）。"""
+    """一条投递给 UI 的日志：已格式化文本 + 当前步骤标签 + 所属任务 ID（可能为空串）。"""
 
-    __slots__ = ("text", "step")
+    __slots__ = ("text", "step", "task_id")
 
-    def __init__(self, text: str, step: str) -> None:
+    def __init__(self, text: str, step: str, task_id: str) -> None:
         self.text = text
         self.step = step
+        self.task_id = task_id
 
 
 class _PipelineFormatter(logging.Formatter):
@@ -56,7 +82,11 @@ class QueueLogHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            line = LogLine(text=self.format(record), step=getattr(record, "step", "") or "")
+            line = LogLine(
+                text=self.format(record),
+                step=getattr(record, "step", "") or "",
+                task_id=_task_id.get(),
+            )
             try:
                 self.queue.put_nowait(line)
             except queue.Full:
