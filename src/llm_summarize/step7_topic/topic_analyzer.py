@@ -34,6 +34,7 @@ from ..utils.row_id_2_time_range import (
 from ..utils.rowid_scope import filter_citations, format_scope, scope_id_set
 from ...utils.time_utils import hms_to_seconds
 from ..analysis_common import inline_array_field, inline_single_field
+from ..analysis_common._jargon_utils import _strip_jargon_suffix
 from ..clustering.event_topics import is_keyword_event
 from ..schemas import SubtitleRow, TopicData
 
@@ -58,6 +59,18 @@ _OPINION_HEDGE_WORDS: tuple[str, ...] = (
 # 问句框架头（如"被问到氧化镝有没有机会时"）：只剥观点侧、且头内含问询语义才剥
 _OPINION_MIN_CORE_LEN = 4    # 子串/子序列级判定的核心文本最小长度
 _OPINION_MIN_ANCHOR_LEN = 6  # 子序列级兜底要求的最长公共连续片段长度
+
+# 主题/标的 细分类 → 四分类（板块/个股/概念/其他）。未知类型兜底「其他」。
+# 现有类型体系无显式「概念」类：题材板块（商业航天等）已被聚类归为「板块」；
+# 「概念」当前仅对应「风格因子」（红利/次新股/科创板等非行业概念）。
+_TYPE_CATEGORY_MAP: dict[str, str] = {
+    "板块": "板块", "板块黑话": "板块",
+    "股票": "个股", "个股黑话": "个股",
+    "风格因子": "概念",
+    "指数": "其他", "债券": "其他", "大宗商品": "其他",
+    "外汇": "其他", "加密货币": "其他",
+    "关键词事件": "其他", "段落事件": "其他",
+}
 
 
 def _sanitize_filename(name: str) -> str:
@@ -556,6 +569,99 @@ class TopicAnalyzer:
                     logger.info("剔除空壳主题: %s（LLM 未输出任何内容字段）", topic)
                     del analysis[topic]
             return analysis
+
+    # ==================== 类型字段注入（四分类）====================
+
+    @staticmethod
+    def category_of(fine_type: str) -> str:
+        """细分类 → 四分类（板块/个股/概念/其他）。未知类型兜底「其他」。"""
+        return _TYPE_CATEGORY_MAP.get(fine_type, "其他")
+
+    @staticmethod
+    def inject_topic_types(
+        analysis: dict, keyword_data: dict[str, TopicData],
+    ) -> dict:
+        """给每个主题 section 注入三层「类型」字段（四分类），原地修改并返回。
+
+        - section 顶层 `类型`；
+        - section 顶层 `子项`：普通子项（剔除关键词事件，与 `_summary_topics` 判据一致）
+          名 + 类型；
+        - 标的条目 `类型`：投资机会（标题）/ 观点（标的名称）/ 个人交易记录（标的名称）。
+
+        固定 section（宏观分析/交易技巧/精炼总结/主讲人暗示重要话题）跳过；标的名
+        无法在 keyword_data 反查时兜底「其他」。纯确定性处理，不发起任何 LLM 调用。
+        """
+        topic_count = 0
+        sub_count = 0
+        item_count = 0
+        unresolved: list[str] = []
+
+        for name, section in analysis.items():
+            if name in _FIXED_SECTION_NAMES or not isinstance(section, dict):
+                continue
+            td = keyword_data.get(name)
+            if not isinstance(td, TopicData):
+                section["类型"] = "其他"
+                logger.warning("主题「%s」在 keyword_data 中缺失，类型兜底「其他」", name)
+                continue
+            section["类型"] = TopicAnalyzer.category_of(td.类型)
+            topic_count += 1
+
+            # 子项：普通子项（剔除关键词事件）
+            children: list[dict] = []
+            for child in td.子项 or []:
+                if not isinstance(child, str) or not child:
+                    continue
+                child_td = keyword_data.get(child)
+                if not isinstance(child_td, TopicData):
+                    continue
+                if is_keyword_event(child_td):
+                    continue
+                children.append({
+                    "名称": child,
+                    "类型": TopicAnalyzer.category_of(child_td.类型),
+                })
+            if children:
+                section["子项"] = children
+                sub_count += len(children)
+
+            # 标的条目：投资机会 / 观点 / 个人交易记录
+            for field, key in (
+                ("投资机会", "标题"),
+                ("观点", "标的名称"),
+                ("个人交易记录", "标的名称"),
+            ):
+                entries = section.get(field)
+                if not isinstance(entries, list):
+                    continue
+                for entry in entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    asset = entry.get(key)
+                    if not isinstance(asset, str) or not asset:
+                        entry["类型"] = "其他"
+                        continue
+                    # 黑话注入会把标题/标的名称内联成「正式名（黑话）」，反查前剥括号后缀
+                    asset_td = keyword_data.get(asset) or keyword_data.get(
+                        _strip_jargon_suffix(asset)
+                    )
+                    if isinstance(asset_td, TopicData):
+                        entry["类型"] = TopicAnalyzer.category_of(asset_td.类型)
+                        item_count += 1
+                    else:
+                        entry["类型"] = "其他"
+                        unresolved.append(asset)
+
+        if unresolved:
+            logger.warning(
+                "类型字段注入：%d 个标的条目名无法在 keyword_data 反查，类型兜底「其他」：%s",
+                len(unresolved), unresolved[:20],
+            )
+        logger.info(
+            "类型字段注入完成：主题 %d 个，子项 %d 个，标的条目 %d 个",
+            topic_count, sub_count, item_count,
+        )
+        return analysis
 
     # ==================== 单主题：根级引用合并 ====================
 

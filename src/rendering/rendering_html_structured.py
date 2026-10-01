@@ -11,11 +11,20 @@
 import html
 from typing import Any
 
-from .inv_filter import inv_event_titles, inv_has_substance, inv_should_skip, is_unstated
+from .inv_filter import (
+    inv_event_titles,
+    inv_has_substance,
+    inv_should_skip,
+    is_unstated,
+    sector_tendency_rank,
+    sector_tendency_tone,
+    stance_has_substance,
+    stance_tone,
+)
 
 # 非板块的特殊顶层键（不当作「板块」渲染）。
 # 相比 transform.js 额外排除 `精炼总结`——render_save 会把它注入 analysis。
-SPECIAL_KEYS = {"交易技巧", "宏观分析", "主讲人暗示重要话题", "精炼总结"}
+SPECIAL_KEYS = {"交易技巧", "宏观分析", "板块分析", "主讲人暗示重要话题", "精炼总结"}
 
 
 def _esc(value: Any) -> str:
@@ -27,18 +36,9 @@ def _esc(value: Any) -> str:
 
 def _parse_opinion(raw: str | None) -> dict | None:
     text = (raw or "").strip()
-    if not text:
+    if not text or is_unstated(text):
         return None
-    tone = "neutral"
-    if "看多" in text or "看涨" in text:
-        tone = "bull"
-    elif "看空" in text or "看跌" in text:
-        tone = "bear"
-    elif "便宜" in text:
-        tone = "cheap"
-    elif "中性" in text or "未表态" in text:
-        tone = "neutral"
-    return {"text": text, "tone": tone}
+    return {"text": text, "tone": stance_tone(text)}
 
 
 def _norm_quotes(quotes: list[dict] | None) -> list[dict]:
@@ -65,14 +65,15 @@ def _norm_stance(label: str, stance: dict | None) -> dict | None:
     opinion = _parse_opinion(stance.get("观点"))
     if not opinion:
         return None
-    # 只保留明确观点（看多/看空/便宜），未表态不显示
-    if opinion["tone"] == "neutral":
-        return None
+    cond = stance.get("条件/前置事件")
+    window = stance.get("时间窗口")
     return {
         "label": label,
         "text": opinion["text"],
         "tone": opinion["tone"],
         "reason": (stance.get("逻辑") or "").strip(),
+        "window": window if isinstance(window, str) else "",
+        "condition": cond if isinstance(cond, str) else "",
         "quotes": _norm_quotes(stance.get("引用")),
     }
 
@@ -92,7 +93,7 @@ def _norm_generic_items(items: list, title_key: str | None = None) -> list[dict]
         title = (item.get(title_key) or "").strip() if title_key else ""
         fields: list[dict] = []
         for key, val in item.items():
-            if key == title_key or key == "引用" or key == "原始黑话":
+            if key == title_key or key == "引用" or key == "原始黑话" or key == "类型":
                 continue
             if isinstance(val, str):
                 text = val.strip()
@@ -149,7 +150,7 @@ def _build_sectors(analysis: dict) -> list[dict]:
             cleaned = dict(item)
             for tk in ("短线", "中长线", "中线", "长线"):
                 tv = cleaned.get(tk)
-                if isinstance(tv, dict) and is_unstated(tv.get("观点")):
+                if isinstance(tv, dict) and not stance_has_substance(tv):
                     cleaned.pop(tk, None)
             price_viewpoint = (cleaned.get("当前价格") or {}).get("观点")
             if is_unstated(price_viewpoint):
@@ -266,11 +267,6 @@ def _build_tips(analysis: dict) -> list[dict]:
 
 def _build_overview(analysis: dict) -> dict | None:
     macro = analysis.get("宏观分析")
-    if not isinstance(macro, dict):
-        return None
-
-    sector_node = macro.get("板块分析")
-    fund_node = sector_node.get("资金流向") if isinstance(sector_node, dict) else None
 
     def list_section(title: str, node: Any) -> dict | None:
         """分块字段：逐条保留「标题 + 观点 + 引用」，不再拍平成一行速览。
@@ -280,12 +276,13 @@ def _build_overview(analysis: dict) -> dict | None:
         """
         if isinstance(node, dict):
             text = (node.get("观点") or "").strip()
+            reason = (node.get("原因") or "").strip()
             quotes = _norm_quotes(node.get("引用"))
             if not text and not quotes:
                 return None
             return {
                 "title": title, "kind": "list",
-                "items": [{"title": "", "text": text, "quotes": quotes}],
+                "items": [{"title": "", "text": text, "reason": reason, "quotes": quotes}],
             }
         if not isinstance(node, list):
             return None
@@ -295,59 +292,67 @@ def _build_overview(analysis: dict) -> dict | None:
                 continue
             item_title = (block.get("标题") or "").strip()
             item_text = (block.get("观点") or "").strip()
+            item_reason = (block.get("原因") or "").strip()
             quotes = _norm_quotes(block.get("引用"))
             if not item_title and not item_text and not quotes:
                 continue
-            items.append({"title": item_title, "text": item_text, "quotes": quotes})
+            items.append({"title": item_title, "text": item_text, "reason": item_reason, "quotes": quotes})
         if not items:
             return None
         return {"title": title, "kind": "list", "items": items}
 
-    sections = [
-        list_section("大盘情绪与状态判断", macro.get("大盘情绪与状态判断")),
-        list_section("宏观经济与事件影响分析", macro.get("宏观经济与事件影响分析")),
-        list_section("后市观点", macro.get("后市观点")),
-        list_section("仓位建议", macro.get("仓位建议")),
-    ]
+    macro_sections = []
+    if isinstance(macro, dict):
+        macro_sections = [
+            list_section("大盘情绪", macro.get("大盘情绪")),
+            list_section("宏观事件", macro.get("宏观事件")),
+            list_section("宏观观点", macro.get("宏观观点")),
+            list_section("仓位建议", macro.get("仓位建议")),
+        ]
 
-    # 资金流向（dict：观点 + 引用）作为单条目 section，与其它字段保持同一逐条 UI
-    if isinstance(fund_node, dict):
-        fund_text = (fund_node.get("观点") or "").strip()
-        fund_quotes = _norm_quotes(fund_node.get("引用"))
-        if fund_text or fund_quotes:
-            sections.append({
-                "title": "资金流向",
-                "kind": "list",
-                "items": [{"title": "", "text": fund_text, "quotes": fund_quotes}],
+    # 板块分析（独立 section，经济版）：板块观点富结构优先，其次板块情绪/板块事件分块
+    sector_sections = []
+    sector = analysis.get("板块分析")
+    if isinstance(sector, dict):
+        views = sector.get("板块观点")
+        hot_summary = (views.get("总览") or "").strip() if isinstance(views, dict) else ""
+        hot_items = []
+        if isinstance(views, dict) and isinstance(views.get("板块清单"), list):
+            for s in views["板块清单"]:
+                if not isinstance(s, dict) or not s.get("板块名称"):
+                    continue
+                tendency = s.get("预测倾向") or ""
+                hot_items.append({
+                    "name": s.get("板块名称") or "",
+                    "tendency": tendency,
+                    "tone": sector_tendency_tone(tendency),
+                    "window": s.get("时间窗口") or "",
+                    "condition": s.get("条件/前置事件") or "",
+                    "reason": s.get("原因") or "",
+                    "quotes": _norm_quotes(s.get("引用")),
+                })
+            # 按预测倾向排序：看多 → 看空 → 不明确（稳定排序，同倾向保持原顺序）
+            hot_items.sort(key=lambda it: sector_tendency_rank(it["tendency"]))
+        if hot_summary or hot_items:
+            sector_sections.append({
+                "title": "板块观点",
+                "kind": "hot",
+                "summary": hot_summary,
+                "items": hot_items,
             })
+        sector_sections.append(list_section("板块情绪", sector.get("板块情绪")))
+        sector_sections.append(list_section("板块事件", sector.get("板块事件")))
 
-    # 热点板块预测：先总览，再逐板块条目
-    hot_node = macro.get("热点板块预测")
-    hot_summary = (hot_node.get("总览") or "").strip() if isinstance(hot_node, dict) else ""
-    hot_items = []
-    if isinstance(hot_node, dict) and isinstance(hot_node.get("板块清单"), list):
-        for s in hot_node["板块清单"]:
-            if not isinstance(s, dict) or not s.get("板块名称"):
-                continue
-            hot_items.append({
-                "name": s.get("板块名称") or "",
-                "tendency": s.get("预测倾向") or "",
-                "window": s.get("时间窗口") or "",
-                "condition": s.get("条件/前置事件") or "",
-                "quotes": _norm_quotes(s.get("引用")),
-            })
-    if hot_summary or hot_items:
-        sections.append({
-            "title": "热点板块预测",
-            "kind": "hot",
-            "summary": hot_summary,
-            "items": hot_items,
-        })
-
-    sections = [s for s in sections if s]
-    if not sections:
+    macro_sections = [s for s in macro_sections if s]
+    sector_sections = [s for s in sector_sections if s]
+    groups = []
+    if macro_sections:
+        groups.append({"title": "宏观分析", "sections": macro_sections})
+    if sector_sections:
+        groups.append({"title": "板块分析", "sections": sector_sections})
+    if not groups:
         return None
-    return {"sections": sections}
+    return {"groups": groups}
 
 
 def _build_short_opps(analysis: dict) -> list[dict]:
@@ -416,12 +421,12 @@ def transform_analysis(analysis: dict) -> dict:
 _PAGE_STYLE = """
 :root {
   --bull:#e03b3b; --bear:#1a9850; --neutral:#8a8f99; --primary:#2b7bba;
-  --cheap:#2b7bba; --bg:#f4f5f7; --card-bg:#fff; --text-main:#1f2329;
+  --cheap:#2b7bba; --expensive:#e67e22; --bg:#f4f5f7; --card-bg:#fff; --text-main:#1f2329;
   --text-sub:#646a73; --border:#eaecf0;
 }
 * { box-sizing:border-box; }
 body {
-  margin:0; background:var(--bg); color:var(--text-main);
+  margin:0; background:#fff; color:var(--text-main);
   font-size:15px; line-height:1.6;
   font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
 }
@@ -436,8 +441,8 @@ body {
 .header-date { font-size:12px; color:var(--neutral); }
 .disclaimer { font-size:12px; color:var(--neutral); border-top:1px solid var(--border); padding-top:10px; }
 .section-title {
-  font-size:20px; font-weight:600; margin:20px 4px 10px;
-  padding-left:10px; border-left:5px solid #f4b183;
+  font-size:20px; font-weight:700; margin:28px 4px 12px;
+  padding-bottom:8px; border-bottom:2px solid #f4b183; text-align:center;
 }
 /* 折叠通用 */
 .fold-head {
@@ -451,8 +456,8 @@ body {
 /* 概览 */
 .ov-block { padding-bottom:12px; margin-bottom:12px; border-bottom:1px solid var(--border); }
 .ov-block:last-child { padding-bottom:0; margin-bottom:0; border-bottom:none; }
-.ov-head { display:flex; align-items:center; padding-left:10px; border-left:4px solid #f4b183; margin-bottom:8px; }
-.ov-subtitle { font-size:16px; font-weight:700; color:var(--text-main); }
+.ov-head { display:flex; align-items:center; padding:4px 0 4px 12px; border-left:4px solid #f4b183; margin-bottom:8px; }
+.ov-subtitle { font-size:17px; font-weight:700; color:var(--text-main); }
 .ov-item { padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid var(--border); }
 .ov-item:last-child { padding-bottom:0; margin-bottom:0; border-bottom:none; }
 .ov-item-title { font-size:14px; font-weight:600; margin-bottom:2px; }
@@ -462,7 +467,10 @@ body {
 .hot-item:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
 .hot-head { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
 .hot-name { font-size:14px; }
-.hot-tendency { font-size:12px; color:var(--bull); background:rgba(224,59,59,.1); padding:2px 10px; border-radius:5px; }
+.hot-tendency { font-size:12px; padding:2px 10px; border-radius:5px; }
+.hot-tendency-bull { color:var(--bull); background:rgba(224,59,59,.1); }
+.hot-tendency-bear { color:var(--bear); background:rgba(26,152,80,.1); }
+.hot-tendency-neutral { color:var(--neutral); background:rgba(138,143,153,.14); }
 .hot-window { font-size:12px; color:var(--text-sub); background:var(--bg); padding:2px 10px; border-radius:5px; }
 .hot-cond { font-size:13px; color:var(--text-sub); margin-top:6px; }
 /* 重要暗示 */
@@ -507,6 +515,7 @@ body {
 .badge-bull { background:rgba(224,59,59,.12); color:var(--bull); }
 .badge-bear { background:rgba(26,152,80,.12); color:var(--bear); }
 .badge-cheap { background:rgba(43,123,186,.12); color:var(--primary); }
+.badge-expensive { background:rgba(230,126,34,.12); color:var(--expensive); }
 .badge-neutral { background:rgba(138,143,153,.14); color:var(--neutral); }
 .event, .knowledge { padding:8px 0; border-top:1px dashed var(--border); }
 .event:first-of-type, .knowledge:first-of-type { border-top:none; }
@@ -521,14 +530,22 @@ body {
 .tip-body { margin-top:10px; }
 .tip-method { font-size:14px; }
 .tip-scope { font-size:12px; color:var(--text-sub); background:var(--bg); padding:8px 12px; border-radius:6px; margin-top:8px; }
-/* 引用 */
-.quote-wrap { display:inline; }
-.quote-toggle { display:inline-flex; align-items:center; gap:4px; margin-left:8px; font-size:12px; color:var(--primary); cursor:pointer; user-select:none; vertical-align:middle; }
-.quote-list { display:block; margin-top:8px; padding-left:10px; border-left:2px solid var(--border); }
-.quote-item { margin-bottom:10px; }
+/* 引用（按钮 float:right 右贴容器右缘、文字环绕；展开列表 clear:right 出现在按钮下方） */
+.quote-wrap { display:contents; }
+.quote-toggle { display:inline-flex; align-items:center; gap:4px; float:right; margin-left:8px; font-size:12px; color:var(--primary); cursor:pointer; user-select:none; }
+.quote-list { clear:right; margin-top:8px; margin-bottom:0; text-align:left; }
+.quote-item { display:block; margin-bottom:10px; }
 .quote-item:last-child { margin-bottom:0; }
-.quote-time { font-size:12px; color:var(--neutral); margin-bottom:2px; }
-.quote-text { font-size:13px; color:var(--text-sub); background:var(--bg); padding:8px 12px; border-radius:6px; }
+.quote-time { display:block; font-size:12px; color:var(--neutral); margin-bottom:2px; }
+.quote-text { display:block; font-size:13px; color:var(--text-sub); background:var(--bg); padding:8px 12px; border-radius:6px; }
+/* 引用按钮 float 右对齐时父容器须为 BFC 才能包含 float */
+.ov-item-text, .hot-cond, .hint-summary, .opp-head, .opp-reason, .stance-reason, .inline-line, .opinion-text, .chain-link, .event-title, .event-impact, .event-logic, .knowledge-content, .trade-field, .other-field, .tip-method, .tip-scope { overflow:hidden; }
+/* hot-head 是 flex 容器（flex 内 float 被忽略），用 margin-left:auto 把引用按钮推到最右 */
+.hot-head .quote-toggle { margin-left:auto; }
+/* flex 容器内 .quote-wrap 因 display:contents 消失，展开的 .fold-body 会直接成为 flex item
+   挤进同一行被压缩错位；用 flex-basis:100% 让它独占一行，视觉与 block 容器一致 */
+.hot-head .fold-body,
+.opp-head .fold-body { flex-basis:100%; }
 /* 个人交易记录 / 其他 */
 .trade, .other-item { padding:8px 0; border-top:1px dashed var(--border); }
 .trade:first-of-type, .other-item:first-of-type { border-top:none; }
@@ -573,39 +590,46 @@ def _quote_card(quotes: list[dict]) -> str:
 def _render_overview(overview: dict | None) -> str:
     if not overview:
         return ""
-    blocks = []
-    for sec in overview["sections"]:
-        if sec["kind"] == "hot":
-            summary = f'<div class="hot-summary">{_esc(sec["summary"])}</div>' if sec.get("summary") else ""
-            items = "".join(
-                '<div class="hot-item">'
-                '<div class="hot-head">'
-                f'<span class="hot-name">{_esc(h["name"])}</span>'
-                + (f'<span class="hot-tendency">{_esc(h["tendency"])}</span>' if h["tendency"] else "")
-                + (f'<span class="hot-window">{_esc(h["window"])}</span>' if h["window"] else "")
-                + ("" if h["condition"] else _quote_card(h["quotes"]))
-                + '</div>'
-                + (f'<div class="hot-cond">前置：{_esc(h["condition"])}{_quote_card(h["quotes"])}</div>' if h["condition"] else "")
-                + '</div>'
-                for h in sec["items"]
+    out = []
+    for group in overview["groups"]:
+        blocks = []
+        for sec in group["sections"]:
+            if sec["kind"] == "hot":
+                summary = f'<div class="hot-summary">{_esc(sec["summary"])}</div>' if sec.get("summary") else ""
+                items = "".join(
+                    '<div class="hot-item">'
+                    '<div class="hot-head">'
+                    f'<span class="hot-name">{_esc(h["name"])}</span>'
+                    + (f'<span class="hot-tendency hot-tendency-{h["tone"]}">{_esc(h["tendency"])}</span>' if h["tendency"] else "")
+                    + (f'<span class="hot-window">{_esc(h["window"])}</span>' if h["window"] else "")
+                    + ("" if (h["condition"] or h["reason"]) else _quote_card(h["quotes"]))
+                    + '</div>'
+                    + (f'<div class="hot-cond">前置：{_esc(h["condition"])}{_quote_card(h["quotes"]) if not h["reason"] else ""}</div>' if h["condition"] else "")
+                    + (f'<div class="hot-cond">原因：{_esc(h["reason"])}{_quote_card(h["quotes"])}</div>' if h["reason"] else "")
+                    + '</div>'
+                    for h in sec["items"]
+                )
+                body = summary + items
+            else:
+                body = "".join(
+                    '<div class="ov-item">'
+                    + (f'<div class="ov-item-title">{_esc(it["title"])}</div>' if it["title"] else "")
+                    + f'<div class="ov-item-text">{_esc(it["text"])}{_quote_card(it["quotes"]) if not it["reason"] else ""}</div>'
+                    + (f'<div class="hot-cond">原因：{_esc(it["reason"])}{_quote_card(it["quotes"])}</div>' if it["reason"] else "")
+                    + '</div>'
+                    for it in sec["items"]
+                )
+            blocks.append(
+                '<div class="ov-block">'
+                f'<div class="ov-head"><span class="ov-subtitle">{_esc(sec["title"])}</span></div>'
+                f'{body}'
+                '</div>'
             )
-            body = summary + items
-        else:
-            body = "".join(
-                '<div class="ov-item">'
-                + (f'<div class="ov-item-title">{_esc(it["title"])}</div>' if it["title"] else "")
-                + f'<div class="ov-item-text">{_esc(it["text"])}{_quote_card(it["quotes"])}</div>'
-                + '</div>'
-                for it in sec["items"]
-            )
-        blocks.append(
-            '<div class="ov-block">'
-            f'<div class="ov-head"><span class="ov-subtitle">{_esc(sec["title"])}</span></div>'
-            f'{body}'
-            '</div>'
+        out.append(
+            f'<div class="section-title">{_esc(group["title"])}</div>'
+            f'<div class="card overview">{"".join(blocks)}</div>'
         )
-    return ('<div class="section-title">大盘概览</div>'
-            f'<div class="card overview">{"".join(blocks)}</div>')
+    return "".join(out)
 
 
 def _render_hints(hints: list[dict]) -> str:
@@ -645,6 +669,13 @@ def _render_stances(stances: list[dict]) -> str:
     out = []
     for st in stances:
         label = f'<span class="badge-label">{_esc(st["label"])}</span>' if st["label"] else ""
+        meta = ""
+        window = st.get("window") or ""
+        cond = st.get("condition") or ""
+        if window:
+            meta += f'<div class="stance-reason">时间窗口：{_esc(window)}</div>'
+        if cond:
+            meta += f'<div class="stance-reason">条件/前置事件：{_esc(cond)}</div>'
         reason = (
             f'<div class="stance-reason">{_esc(st["reason"])}{_quote_card(st["quotes"])}</div>'
             if st["reason"] else ""
@@ -652,7 +683,9 @@ def _render_stances(stances: list[dict]) -> str:
         out.append(
             '<div class="stance">'
             f'<span class="badge badge-{st["tone"]}">{label}<span class="badge-text">{_esc(st["text"])}</span></span>'
-            f'{reason}{"" if st["reason"] else _quote_card(st["quotes"])}</div>'
+            f'{meta}{reason}'
+            + (f'<div class="inline-line">{_quote_card(st["quotes"])}</div>' if not st["reason"] else "")
+            + '</div>'
         )
     return "".join(out)
 
@@ -827,12 +860,17 @@ def render_structured_html(analysis: dict, author: str | None = None,
     )
 
     sectors_html = "".join(_render_sector(s) for s in view["sectors"])
+    sectors_section = (
+        f'<div class="section-title">板块总结（{len(view["sectors"])}）</div>{sectors_html}'
+        if view["sectors"]
+        else ""
+    )
     body = (
         header
         + _render_overview(view["overview"])
         + _render_hints(view["hints"])
         + _render_short_opps(view["shortOpps"])
-        + f'<div class="section-title">板块总结（{len(view["sectors"])}）</div>{sectors_html}'
+        + sectors_section
         + _render_tips(view["tips"])
     )
 

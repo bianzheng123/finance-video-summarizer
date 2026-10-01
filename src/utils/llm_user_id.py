@@ -43,6 +43,17 @@ def get_current_user_id() -> str | None:
     return _VIDEO_USER_ID.get()
 
 
+def economic_user_id() -> str | None:
+    """经济版生成阶段的共享 user_id：`{base_uid}_economic`，不在 scope 内为 None。
+
+    经济版宏观 4 字段组 + 板块 3 字段组共 7 个生成调用输入同一份完整字幕，用同一
+    user_id 共享 KV 命名空间，完整字幕只预热一次（后续字段组命中 system + 完整字幕
+    前缀）。引用校验阶段输入窗口化字幕、不共享，仍走 client 的 `{base_uid}_{stage}`。
+    """
+    base = get_current_user_id()
+    return f"{base}_economic" if base else None
+
+
 def read_user_id(save_path: Path) -> str | None:
     """从该视频目录的 metadata.json 读既有 user_id；不存在或未设置返回 None。
 

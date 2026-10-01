@@ -84,7 +84,10 @@ _STAGE_OVERRIDES: contextvars.ContextVar[dict[str, dict] | None] = contextvars.C
     "llm_stage_overrides", default=None,
 )
 
-_STAGE_RE = re.compile(r"^(\d+_\d+(?:_\d+)?)")
+# 阶段键：完整版 `N_M`；经济版用 `e` 前缀（`e1_1`/`e2_1`）、聚合概览用 `o` 前缀
+# 各自成一套、从 1 开始独立编号，避免与完整版 `1_1`/`2_1` 等键在 stages 表里冲突。
+# `e`/`o` 前缀可选，`N_M` 保持兼容。
+_STAGE_RE = re.compile(r"^((?:[eo])?\d+_\d+(?:_\d+)?)")
 
 
 def _merge_into(base: dict, patch: dict) -> dict:

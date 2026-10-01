@@ -16,6 +16,7 @@ from pathlib import Path
 
 from .client.video_info_adapter import extract_bvid, video_info_adapter
 from .llm_analysis import LLMAnalyzer
+from .llm_summarize_economic import EconomicAnalyzer
 from .llm_summarize.schemas import SubtitleRow
 from .log_config import session_logger, step_logger
 from .recognize_subtitle import SubtitleRecognizer
@@ -67,8 +68,12 @@ def summarize_and_render(
     （RESOURCE_MANAGER 全局线程池与 LLM/WSA 并发闸）仍是进程内单例，不受此改动影响。
     """
     if analysis is None:
-        analyzer = LLMAnalyzer()
-        analysis = analyzer.summarize(output_dir, subtitle_l, economic=economic)
+        if economic:
+            economic_analyzer = EconomicAnalyzer()
+            analysis = economic_analyzer.summarize(output_dir, subtitle_l)
+        else:
+            analyzer = LLMAnalyzer()
+            analysis = analyzer.summarize(output_dir, subtitle_l)
     with step_logger("渲染"):
         renderer = RenderingController()
         renderer.render_save(

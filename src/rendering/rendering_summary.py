@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 
+from .inv_filter import is_unstated
 from .rendering_base import BaseRenderer
 
 
@@ -17,6 +18,7 @@ class SummaryRenderer(BaseRenderer):
             parts.append(f"，网址：[{video_url}]({video_url})")
         parts.append("\n")
 
+        # parts.append("想对总结提意见的朋友可咨询WX号**ay13316812345**，想聊天的朋友也欢迎加入\n")
         parts.append("免责声明：本文仅为内容总结，不构成投资建议。\n\n**总结可能存在遗漏或错误，不能完全反映原视频观点，请谨慎对待。**\n")
         parts.append("**精华总结已涵盖全部内容，其余均为引用，请以原视频及引用部分为准。**\n\n")
         return parts
@@ -78,7 +80,9 @@ class SummaryRenderer(BaseRenderer):
             if field_key == "原始黑话":
                 continue
             if isinstance(field_val, str):
-                parts.append(f"{field_key}：{field_val or '无'}\n\n")
+                if not field_val.strip():
+                    continue
+                parts.append(f"{field_key}：{field_val}\n\n")
             elif isinstance(field_val, list):
                 items_str = "、".join(self.decorate_jargon(str(x)) for x in field_val)
                 parts.append(f"{field_key}：**{items_str or '无'}**\n\n")
@@ -120,6 +124,8 @@ class SummaryRenderer(BaseRenderer):
                     continue
                 if field_key == "原始黑话":
                     continue
+                if field_key == "类型":
+                    continue
                 if field_key == "因果链" and isinstance(field_val, list) and field_val:
                     for link in field_val:
                         if not isinstance(link, dict):
@@ -139,14 +145,13 @@ class SummaryRenderer(BaseRenderer):
                     if not field_val:
                         continue
                     viewpoint = field_val.get("观点")
-                    logic = field_val.get("逻辑", "")
+                    if is_unstated(viewpoint):
+                        # 未表态立场一律不渲染：跳过整个维度
+                        continue
                     if viewpoint:
                         parts.append(f"{field_key}：{viewpoint}\n\n")
-                        # 修复：只有当观点是"未表态"且逻辑为空时，才不渲染引用
-                        # 否则（未表态但逻辑不为空，或非未表态）都渲染逻辑和引用
-                        if "未表态" not in viewpoint or logic:
-                            remaining = {k: v for k, v in field_val.items() if k != "观点"}
-                            parts.extend(self.render_dict_fields(remaining, cit_fn))
+                        remaining = {k: v for k, v in field_val.items() if k != "观点"}
+                        parts.extend(self.render_dict_fields(remaining, cit_fn))
                     else:
                         parts.append(f"**{field_key}**\n\n")
                         parts.extend(self.render_dict_fields(field_val, cit_fn))

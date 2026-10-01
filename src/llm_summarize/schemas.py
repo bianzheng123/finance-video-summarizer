@@ -93,3 +93,32 @@ class TopicUnit(BaseModel):
     事件: str = ""
     rows: list[tuple[int, SubtitleRow]]
     row_ids: list[int]
+
+
+def validate_subtitle_l(subtitle_l: list[SubtitleRow]) -> None:
+    """校验字幕列表：非空、类型正确、rowID 从 1 连续、至少一行有效文本。
+
+    完整版与经济版两个入口共用，避免各自维护一份校验逻辑。
+    """
+    if subtitle_l is None:
+        raise ValueError("subtitle_l参数不能为None")
+    if not isinstance(subtitle_l, list):
+        raise TypeError(f"subtitle_l参数必须是列表类型，实际类型: {type(subtitle_l)}")
+    if len(subtitle_l) == 0:
+        raise ValueError("subtitle_l参数不能为空列表")
+
+    valid_count = 0
+    expected_row_id = 1
+    for item in subtitle_l:
+        if not isinstance(item, SubtitleRow):
+            continue
+        if item.rowID != expected_row_id:
+            raise ValueError(
+                f"subtitle_l中rowID不是从1开始连续的，期望{expected_row_id}，实际{item.rowID}"
+            )
+        if item.text and str(item.text).strip():
+            valid_count += 1
+        expected_row_id += 1
+
+    if valid_count == 0:
+        raise ValueError("subtitle_l中没有有效字幕数据，所有条目都无效")

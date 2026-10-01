@@ -52,6 +52,12 @@ def step_key_of(tag: str) -> str | None:
         return "语音识别"
     if tag == "渲染":
         return "渲染"
+    # 经济版「第1步-宏观分析」「第2步-板块分析」与完整版步号（5/无）不同，
+    # 先按关键词匹配这两个板块级阶段，避免数字前缀映射错（第1步→话题分割）。
+    if "宏观分析" in tag:
+        return "宏观分析"
+    if "板块分析" in tag:
+        return "板块分析"
     m = _LLM_STEP_RE.match(tag)
     if m:
         return _LLM_STEP_NAMES.get(int(m.group(1)))
@@ -72,7 +78,7 @@ FULL_STEPS: list[str] = [
     "渲染",
 ]
 
-ECONOMIC_STEPS: list[str] = ["语音识别", "宏观分析", "渲染"]
+ECONOMIC_STEPS: list[str] = ["语音识别", "宏观分析", "板块分析", "渲染"]
 
 # 节点耗时权重（合计 100）：按各阶段在总耗时中的占比估值，决定进度条百分比。
 # ASR 与 LLM 分析是大头；1~4 步按调用量与实测日志占比分摊。
@@ -89,7 +95,8 @@ _STEP_WEIGHTS_FULL: dict[str, int] = {
 }
 _STEP_WEIGHTS_ECONOMIC: dict[str, int] = {
     "语音识别": 55,
-    "宏观分析": 35,
+    "宏观分析": 20,
+    "板块分析": 15,
     "渲染": 10,
 }
 

@@ -13,7 +13,8 @@
 落盘：
 - `6_analysis_result.json`：本步的 `交易技巧` + `主讲人暗示重要话题` 两个 section，断点续跑用；
 - `6_1_trading_skills.json`：交易技巧 LLM 输出整合 dump；
-- `6_2_sensitive_signals.json`：敏感信号判定 + 6_3 校验 LLM 输出整合 dump；
+- `6_2_sensitive_signals.json`：敏感信号判定 LLM 输出整合 dump；
+- `6_3_引用校验.json`：6_3 引用校验 LLM 输出整合 dump；
 - `6_validation_status.json`：敏感信号引用校验状态台账。
 """
 
@@ -161,6 +162,9 @@ class TradingSensitivityStep:
         sink_6_2: dict[str, dict] = load_dump_outputs(
             base_dir / "6_2_sensitive_signals.json",
         )
+        sink_6_3: dict[str, dict] = load_dump_outputs(
+            base_dir / "6_3_引用校验.json",
+        )
 
         # 6_2 敏感信号判定：原地给 keyword_data 挂 敏感提示
         self._sensitivity.analyze(
@@ -184,9 +188,10 @@ class TradingSensitivityStep:
             result_sink=validation_sink,
         )
         for k, v in validation_sink.items():
-            sink_6_2[k] = v
+            sink_6_3[k] = v
         write_validation_status(base_dir / "6_validation_status.json", statuses)
         write_integrated(base_dir / "6_2_sensitive_signals.json", sink_6_2)
+        write_integrated(base_dir / "6_3_引用校验.json", sink_6_3)
         logger.info(
             "敏感信号聚合与 6_3 校验完成：%d 条",
             len(section.get("主讲人暗示重要话题") or []),

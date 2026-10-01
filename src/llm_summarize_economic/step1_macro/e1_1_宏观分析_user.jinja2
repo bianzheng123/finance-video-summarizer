@@ -1,0 +1,9 @@
+{%- from '_repair_block.jinja2' import repair_block -%}
+[DATA]
+{{ subtitle_text }}
+[/DATA]
+
+[TASK]
+{{ task_rules }}
+{{ repair_block(repair_items) }}
+[/TASK]

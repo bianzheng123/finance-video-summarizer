@@ -65,7 +65,7 @@ from ...utils.analysis_cleanup import _DROP_KEY, clean_analysis
 
 logger = logging.getLogger(__name__)
 
-_FIXED_SECTION_NAMES = {"宏观分析", "交易技巧", "精炼总结", "主讲人暗示重要话题"}
+_FIXED_SECTION_NAMES = {"宏观分析", "板块分析", "交易技巧", "精炼总结", "主讲人暗示重要话题"}
 
 # 投资机会条目的立场子字段键，及「未表态」取值（须与 7_1_主题分析.json 的 观点 枚举逐字一致）
 _INVESTMENT_STANCE_KEYS = ("短线", "中长线", "当前价格")
@@ -127,13 +127,19 @@ class CitationValidator:
         llm_client: LLMClient,
         evidence_prompt: str | None = None,
         evidence_schema: dict | None = None,
+        with_type: bool = True,
     ) -> None:
         """prompt / schema 缺省时从本模块同目录自加载（`引用校验.txt` / `引用校验_batch.json`）。
 
         组件资产不与任何步骤共置，故各调用步骤直接 `CitationValidator(client)` 即可，
         无需各自拼路径；显式传参仅用于测试覆盖。
+
+        `with_type`：`[DATA]` 是否渲染第三列行号标识。完整版字幕带 annotation
+        （无关/噪音行需随行标出），故默认 True；经济版字幕无 annotation（每行都
+        是"重点"、无区分信息），传 False 回退两列 `rowID\\t文本`。
         """
         self._llm_client = llm_client
+        self._with_type = with_type
         self._evidence_prompt = (
             evidence_prompt
             if evidence_prompt is not None
@@ -380,46 +386,10 @@ class CitationValidator:
                         "topic_for_model": topic_name,
                     })
 
-        # ---- 2) 宏观分析子段（板块涨跌 + 热点板块预测 + 顶层 子段）----
+        # ---- 2) 宏观分析子段（4 个分块 list 字段）----
         macro = analysis.get("宏观分析")
         if isinstance(macro, dict) and _want("宏观分析"):
-            for sub_key, list_key, label_prefix in (
-                ("板块分析", "板块涨跌", "宏观分析 / 板块涨跌"),
-                ("热点板块预测", "板块清单", "宏观分析 / 热点板块预测.板块清单"),
-            ):
-                parent = macro.get(sub_key)
-                if not isinstance(parent, dict):
-                    continue
-                arr = parent.get(list_key)
-                if not isinstance(arr, list):
-                    continue
-                path_prefix = f"宏观分析.{sub_key}.{list_key}"
-                for idx in range(len(arr)):
-                    item = arr[idx]
-                    worker_tasks.append({
-                        "kind": "宏观分析",
-                        "section": "宏观分析",
-                        "label": f"{label_prefix}[{idx}]",
-                        "路径": f"{path_prefix}[{idx}]",
-                        "scope_row_ids": all_row_ids,
-                        # 宏观类：窗口中心=本条目引用到的行（作用域是全场，
-                        # 直接开窗等于不切片）
-                        "window_center_ids": sorted(
-                            collect_cited_row_ids(item) - blocked,
-                        ),
-                        "keywords_only_jargon": True,
-                        "get_item": (lambda d=arr, i=idx: d[i]),
-                        "set_item": (lambda new, d=arr, i=idx: d.__setitem__(i, new)),
-                        "topic_for_model": None,
-                        "sub_key": sub_key,
-                        "list_key": list_key,
-                        "item_index": idx,
-                    })
-            # 其它顶层子段（除已枚举的 板块分析 / 热点板块预测 之外）：
-            # dict（如资金流向）整段一条 task；分块字段是 list，按块各建一条 task
             for sub_key, sub_val in macro.items():
-                if sub_key in ("板块分析", "热点板块预测"):
-                    continue
                 if isinstance(sub_val, dict):
                     if not _has_citations(sub_val):
                         continue
@@ -460,6 +430,66 @@ class CitationValidator:
                             "topic_for_model": None,
                             "sub_key": sub_key,
                             "list_key": None,  # 语义：字段本身即列表，修复按 item_index 就地写回
+                            "item_index": idx,
+                        })
+
+        # ---- 2b) 板块分析子段（板块观点富结构 + 板块情绪/板块事件分块）----
+        sector = analysis.get("板块分析")
+        if isinstance(sector, dict) and _want("板块分析"):
+            for sub_key, list_key, label_prefix in (
+                ("板块观点", "板块清单", "板块分析 / 板块观点.板块清单"),
+            ):
+                parent = sector.get(sub_key)
+                if not isinstance(parent, dict):
+                    continue
+                arr = parent.get(list_key)
+                if not isinstance(arr, list):
+                    continue
+                path_prefix = f"板块分析.{sub_key}.{list_key}"
+                for idx in range(len(arr)):
+                    item = arr[idx]
+                    worker_tasks.append({
+                        "kind": "宏观分析",
+                        "section": "板块分析",
+                        "label": f"{label_prefix}[{idx}]",
+                        "路径": f"{path_prefix}[{idx}]",
+                        "scope_row_ids": all_row_ids,
+                        # 板块类同宏观类：窗口中心=本条目引用到的行（作用域是全场）
+                        "window_center_ids": sorted(
+                            collect_cited_row_ids(item) - blocked,
+                        ),
+                        "keywords_only_jargon": True,
+                        "get_item": (lambda d=arr, i=idx: d[i]),
+                        "set_item": (lambda new, d=arr, i=idx: d.__setitem__(i, new)),
+                        "topic_for_model": None,
+                        "sub_key": sub_key,
+                        "list_key": list_key,
+                        "item_index": idx,
+                    })
+            # 其它顶层子段（除已枚举的 板块观点 之外）：板块情绪/板块事件是 list，按块各建一条 task
+            for sub_key, sub_val in sector.items():
+                if sub_key == "板块观点":
+                    continue
+                if isinstance(sub_val, list):
+                    for idx in range(len(sub_val)):
+                        item = sub_val[idx]
+                        if not isinstance(item, dict) or not _has_citations(item):
+                            continue
+                        worker_tasks.append({
+                            "kind": "宏观分析",
+                            "section": "板块分析",
+                            "label": f"板块分析 / {sub_key}[{idx}]",
+                            "路径": f"板块分析.{sub_key}[{idx}]",
+                            "scope_row_ids": all_row_ids,
+                            "window_center_ids": sorted(
+                                collect_cited_row_ids(item) - blocked,
+                            ),
+                            "keywords_only_jargon": True,
+                            "get_item": (lambda l=sub_val, i=idx: l[i]),
+                            "set_item": (lambda new, l=sub_val, i=idx: l.__setitem__(i, new)),
+                            "topic_for_model": None,
+                            "sub_key": sub_key,
+                            "list_key": None,
                             "item_index": idx,
                         })
 
@@ -585,8 +615,8 @@ class CitationValidator:
             )
         return final
 
-    @staticmethod
     def _render_batch_context(
+        self,
         tasks: list[dict],
         idxs: list[int],
         current: dict[int, dict],
@@ -617,7 +647,7 @@ class CitationValidator:
                 )
 
         subtitle_text = render_windowed_subtitle(
-            subtitle_l, centers, with_type=True,
+            subtitle_l, centers, with_type=self._with_type,
         )
         # 注释块切到与 [DATA] 完全相同的行集。centers 全空时 render_windowed_subtitle
         # 已兜底为完整字幕，window_row_ids 同步返回全部行——两者始终一致。
@@ -753,10 +783,11 @@ class CitationValidator:
             return
         failure = r.get("失败原因") or "未提供失败原因"
 
-        # 调用方给了 repair_fn（现为步骤 5 宏观分析：重跑该字段组）时优先走它——
-        # 重新生成比接受「字幕照抄式重写」更贴合质量要求（既定要求）。
-        # 修复产物在 repair_fn 内已做 行号过滤 → 行号→时间 → 原文填充。
-        if repair_fn is not None:
+        # 调用方给了 repair_fn（现为步骤 5 宏观分析 / 经济版步骤 1、2）且校验模型对
+        # 重写结果信心为「低」时才走它——重跑全文生成是 max 档深度推理、成本高，只在
+        # 重写可能失真时兜底；其余（高/中、或模型未给置信度）直接采用下方校验已输出的
+        # 「重写后条目」。修复产物在 repair_fn 内已做 行号过滤 → 行号→时间 → 原文填充。
+        if repair_fn is not None and r.get("置信度") == "低":
             try:
                 repaired = repair_fn(task, current[idx], failure)
             except Exception as e:
@@ -766,7 +797,7 @@ class CitationValidator:
                 repaired = None
             if isinstance(repaired, dict):
                 logger.info(
-                    "%s 不支撑（%s），已重跑生成阶段并采用修复产物",
+                    "%s 不支撑（%s，置信度低），已重跑生成阶段并采用修复产物",
                     task["label"], failure,
                 )
                 final[idx] = repaired

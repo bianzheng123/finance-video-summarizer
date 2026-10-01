@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 from markdown_it import MarkdownIt
 
+from .inv_filter import is_unstated
 from .rendering_base import BaseRenderer
 
 
@@ -191,6 +192,7 @@ class GongzhonghaoRenderer(BaseRenderer):
             parts.append(f"，网址：[{video_url}]({video_url})")
         parts.append("\n\n")
 
+        # parts.append("想对总结提意见的朋友可咨询WX号**ay13316812345**，想聊天的朋友也欢迎加入\n\n")
         parts.append("\n免责声明：本文仅为内容总结，不构成投资建议。\n\n**总结可能存在遗漏或错误，不能完全反映原视频观点，请谨慎对待。**\n\n")
         parts.append("**精华总结已涵盖全部内容，其余均为引用，请以原视频及引用部分为准。**\n\n")
         return parts
@@ -252,7 +254,9 @@ class GongzhonghaoRenderer(BaseRenderer):
             if field_key == "原始黑话":
                 continue
             if isinstance(field_val, str):
-                parts.append(f"{field_key}：{field_val or '无'}\n\n")
+                if not field_val.strip():
+                    continue
+                parts.append(f"{field_key}：{field_val}\n\n")
             elif isinstance(field_val, list):
                 items_str = "、".join(self.decorate_jargon(str(x)) for x in field_val)
                 parts.append(f"{field_key}：**{items_str or '无'}**\n\n")
@@ -294,6 +298,8 @@ class GongzhonghaoRenderer(BaseRenderer):
                     continue
                 if field_key == "原始黑话":
                     continue
+                if field_key == "类型":
+                    continue
                 if field_key == "因果链" and isinstance(field_val, list) and field_val:
                     for link in field_val:
                         if not isinstance(link, dict):
@@ -313,11 +319,13 @@ class GongzhonghaoRenderer(BaseRenderer):
                     if not field_val:
                         continue
                     viewpoint = field_val.get("观点")
+                    if is_unstated(viewpoint):
+                        # 未表态立场一律不渲染：跳过整个维度
+                        continue
                     if viewpoint:
                         parts.append(f"{field_key}：{viewpoint}\n\n")
-                        if "未表态" not in viewpoint:
-                            remaining = {k: v for k, v in field_val.items() if k != "观点"}
-                            parts.extend(self.render_dict_fields(remaining, cit_fn))
+                        remaining = {k: v for k, v in field_val.items() if k != "观点"}
+                        parts.extend(self.render_dict_fields(remaining, cit_fn))
                     else:
                         parts.append(f"**{field_key}**\n\n")
                         parts.extend(self.render_dict_fields(field_val, cit_fn))
@@ -480,7 +488,8 @@ class GongzhonghaoRenderer(BaseRenderer):
         return parts
 
     @staticmethod
-    def markdown_to_html(md_text: str) -> str:
+    def markdown_to_html(md_text: str, extra_css: str = "") -> str:
         md = MarkdownIt("commonmark", {"html": True}).enable("table")
         content_html = md.render(md_text)
-        return _GZH_HTML_TEMPLATE.replace("{css}", _GZH_CSS).replace("{content}", content_html)
+        css = _GZH_CSS + extra_css
+        return _GZH_HTML_TEMPLATE.replace("{css}", css).replace("{content}", content_html)

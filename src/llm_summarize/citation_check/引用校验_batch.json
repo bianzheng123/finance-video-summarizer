@@ -8,7 +8,8 @@
         "properties": {
           "是否支撑": {"type": "boolean"},
           "失败原因": {"type": "string"},
-          "重写后条目": {"type": "object"}
+          "重写后条目": {"type": "object"},
+          "置信度": {"type": "string", "enum": ["高", "中", "低"]}
         },
         "required": ["是否支撑"]
       }

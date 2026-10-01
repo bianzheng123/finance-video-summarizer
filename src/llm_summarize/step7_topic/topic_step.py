@@ -221,6 +221,9 @@ class TopicAnalysisStep:
                     self._reapply_opinion_invariants(analysis)
 
             # ==================== 落盘 ====================
+            # 类型字段注入（四分类：板块/个股/概念/其他）：覆盖正常生成与两种断点恢复
+            # 路径（都会走到本段）。固定 section 跳过，纯确定性、不发起 LLM 调用。
+            TopicAnalyzer.inject_topic_types(analysis, keyword_data)
             write_json_atomic(base_dir / "7_analysis_result.json", analysis)
             write_integrated(base_dir / "7_1_topic_analysis.json", sink_7_1)
             if sink_7_2:

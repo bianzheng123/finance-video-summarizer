@@ -17,7 +17,6 @@ import logging
 import os
 import random
 from collections.abc import Callable, Iterable
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +38,7 @@ from .config import (
 )
 from .model import ReasoningChatOpenAI
 from ..utils.llm_user_id import get_current_user_id
+from ..utils.llm_system_prompt import get_current_system_prompt
 
 from .io import write_attempt_log, write_overview_log
 from .retry import OPENAI_MAX_RETRIES, build_retrying
@@ -61,16 +61,6 @@ logger = logging.getLogger(__name__)
 # 单次 LLM 调用超时（秒）：挂死的请求不能无限占用池线程与并发闸。
 # 超时抛 APITimeoutError → retry 按过载类处理（有限墙钟内重试）。
 LLM_CALL_TIMEOUT = float(os.getenv("LLM_CALL_TIMEOUT", "900"))
-
-# 全系统共用的 system prompt：输入协议 + 硬性约束 + 金融领域约定。
-# 各阶段特有的规则不在这里，而是由 `*_user.jinja2` 渲染进 [TASK] 块。
-_SHARED_SYSTEM_PATH = Path(__file__).parent / "prompts" / "shared_system.txt"
-
-
-@lru_cache(maxsize=1)
-def load_shared_system_prompt() -> str:
-    """加载全系统共用的 system prompt（进程内只读一次）。"""
-    return _SHARED_SYSTEM_PATH.read_text(encoding="utf-8").strip()
 
 
 def _stage_user_id(stage: str | None) -> str | None:
@@ -225,8 +215,10 @@ class _InvokeFailureRecorder(BaseCallbackHandler):
 class LLMClient:
     """LangChain 封装的 LLM 客户端单例。
 
-    system prompt 由本模块统一注入（`prompts/shared_system.txt`），全系统一致，
-    调用方无需传入。阶段特有的规则由调用方渲染进 user prompt 的 `[TASK]` 块。
+    system prompt 由各版本入口经 ``system_prompt_scope`` 绑定（完整版
+    ``llm_summarize/shared_system.txt`` / 经济版 ``llm_summarize_economic/shared_system.txt``），
+    本模块按 scope 读取；调用方可显式传 ``system_prompt`` 覆盖。阶段特有的规则由调用方
+    渲染进 user prompt 的 `[TASK]` 块。
 
     落盘格式统一：一次逻辑调用（单轮 `call` / 多轮 `call_conversation`）落一个
     文件夹 `{log_name}/`——每次物理尝试（含重试）一个 `round{r}__attempt{n}.json`
@@ -276,14 +268,15 @@ class LLMClient:
         log_name: str | None = None,
         step_name: str | None = None,
         system_prompt: str | None = None,
+        user_id: str | None = None,
+        warmup_shared: bool = False,
     ) -> dict:
         """单轮调用 LLM，返回经 schema 校验的结构化结果。
 
-        默认注入 `src/llm_infra/prompts/shared_system.txt` 作为 system prompt——
-        这样所有阶段的 system message 完全一致，同一视频的所有调用配合同一份
-        完整字幕 [DATA]（只有 [ROWID] 不同），可以让 DeepSeek 前缀缓存持续命中。
-        传 `system_prompt` 可整体覆盖默认值（仅聚合概览等板块级 persona 场景使用），
-        不传时行为与原先完全一致。
+        system prompt 默认取 ``system_prompt_scope`` 绑定的版本 system prompt
+        （完整版 / 经济版各自入口绑定），全版本内一致，让同版本各调用共享稳定
+        前缀、命中 DeepSeek 前缀缓存。传 `system_prompt` 可整体覆盖默认值
+        （如主题去重传空串以不带 system message）。
 
         落盘：一次调用落一个文件夹 `{log_name}/`——每次物理尝试（含 tenacity
         重试）一个 `round1__attempt{n}.json`，收尾写 `概览.json`。
@@ -296,7 +289,9 @@ class LLMClient:
             log_dir: 日志输出目录（Path），None 则不落盘
             log_name: 调用文件夹名，如 "2_1_清洗与纠错_topic3"
             step_name: 步骤名称，写入日志的 "步骤" 字段，同时用于阶段参数匹配
-            system_prompt: system prompt 整体覆盖；None 时注入共享默认模板
+            system_prompt: system prompt 整体覆盖；None 时读 system_prompt_scope 绑定的版本 prompt
+            user_id: 显式覆盖 KV 隔离 user_id；None 时按 stage 派生 `{base_uid}_{stage}`
+            warmup_shared: 预热键按 user_id 共享（忽略 stage），供经济版生成阶段 7 字段组共享完整字幕缓存
 
         Returns:
             schema 校验通过后的 dict。
@@ -308,16 +303,16 @@ class LLMClient:
         eff = effective_config(
             stage=stage, model=model, temperature=temperature,
         )
-        user_id = _stage_user_id(stage)
+        uid = user_id or _stage_user_id(stage)
         if system_prompt is None:
-            system_prompt = load_shared_system_prompt()
+            system_prompt = get_current_system_prompt() or ""
         # system_prompt 为空串时不发送 system message（轻量调用场景，
         # 如 4_1 主题去重——任务规则完全自含于 user prompt）
         messages: list = []
         if system_prompt:
             messages.append(SystemMessage(content=system_prompt))
         messages.append(HumanMessage(content=user_prompt))
-        llm = self._build_llm(eff, user_id=user_id)
+        llm = self._build_llm(eff, user_id=uid)
         # json_object 保证模型输出合法 JSON 形态；解析与 schema 校验在重试单元内完成，
         # 校验失败（非过载错误）同样触发 tenacity 重试（与旧 with_structured_output
         # 链路的 JsonOutputParser 失败语义等价）。
@@ -380,8 +375,8 @@ class LLMClient:
                 "调用次数": attempt_count,
                 "轮数": 1,
             }
-            if user_id:
-                payload["user_id"] = user_id
+            if uid:
+                payload["user_id"] = uid
             if failure_reason:
                 payload["失败原因"] = failure_reason
             try:
@@ -442,7 +437,7 @@ class LLMClient:
             finally:
                 warmup_flag = False
 
-        is_leader = wait_or_lead_prefix(stage, user_id, _lead_run)
+        is_leader = wait_or_lead_prefix(stage, uid, _lead_run, shared=warmup_shared)
 
         # 全局限流在重试单元内按尝试持有；按异常类型分流重试：过载类无限重试，
         # 其它有限次数（见 retry）。
@@ -510,7 +505,7 @@ class LLMClient:
             tool_executor: 工具执行器 `(name, args_dict) -> str`，返回值作为 tool 消息内容
             schema: 最终结果的 JSON Schema；None 表示不校验、返回原始正文
             max_rounds: 最多调用模型几轮（含收尾轮与校正轮）
-            system_prompt: system prompt 整体覆盖；None 时注入共享默认模板
+            system_prompt: system prompt 整体覆盖；None 时读 system_prompt_scope 绑定的版本 prompt
 
         Returns:
             `(最终结果, 工具调用轨迹)`。轨迹每项形如
@@ -527,7 +522,7 @@ class LLMClient:
         )
         user_id = _stage_user_id(stage)
         if system_prompt is None:
-            system_prompt = load_shared_system_prompt()
+            system_prompt = get_current_system_prompt() or ""
         # system_prompt 为空串时不发送 system message（与 call() 同口径）
         messages: list = []
         if system_prompt:

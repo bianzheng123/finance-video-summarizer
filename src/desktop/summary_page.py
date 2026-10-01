@@ -107,7 +107,7 @@ class UrlCard(QFrame):
 
         opt_row = QHBoxLayout()
         opt_row.setSpacing(8)
-        self._economic_check = QCheckBox("经济版（只做宏观分析，更快更省 token）")
+        self._economic_check = QCheckBox("经济版（宏观 + 板块分析，更快更省 token）")
         opt_row.addWidget(self._economic_check)
         opt_row.addStretch(1)
         self._cost_label = QLabel()

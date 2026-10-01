@@ -51,7 +51,12 @@
 
     "8_1": {"reasoning_effort": "medium"},
     "8_2": {"reasoning_effort": "medium"},
-    "8_3": {"reasoning_effort": "medium"}
+    "8_3": {"reasoning_effort": "medium"},
+
+    "e1_1": {"reasoning_effort": "max"},
+    "e1_2": {"reasoning_effort": "low"},
+    "e2_1": {"reasoning_effort": "max"},
+    "e2_2": {"reasoning_effort": "low"}
   },
   "llm_batch": {
     "7_1_主题分析": 1,

@@ -24,6 +24,7 @@ from ...log_config import step_logger
 from ..schemas import SubtitleRow, TopicData, TopicSegment
 from ..utils.llm_text_utils import llm_text_of
 from .macro_analyzer import MacroFieldGroup, _sanitize_filename
+from .macro_prompt import field_requirements
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +168,7 @@ class MacroSegmentSelector:
                 task_rules=self._prompt,
                 segment_index=segment_index,
                 group=group,
+                field_requirements=field_requirements(group.字段[0]),
             )
             log_name = f"{STEP_NUMBER_STR}_宏观分析选段_{safe_name}"
             result = self._llm_client.call(

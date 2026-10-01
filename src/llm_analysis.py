@@ -17,16 +17,20 @@ from .llm_summarize import (
 )
 from .llm_infra.resource import RESOURCE_MANAGER
 from .llm_summarize.analysis_common import dedup_position_advice_against_skills
-from .llm_summarize.schemas import SubtitleRow
+from .llm_summarize.schemas import SubtitleRow, validate_subtitle_l
 from .llm_summarize.utils.llm_text_utils import mark_unimportant_segments
 from .log_config import step_logger
 from .utils.llm_user_id import user_id_scope
+from .utils.llm_system_prompt import load_system_prompt_file, system_prompt_scope
 
 
 _env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=_env_path, override=True)
 
 logger = logging.getLogger(__name__)
+
+# 完整版 system prompt：位于 llm_summarize 包根目录（已从 llm_infra/prompts 下放到版本目录）。
+_FULL_SYSTEM_PROMPT_PATH = Path(__file__).parent / "llm_summarize" / "shared_system.txt"
 
 
 class LLMAnalyzer:
@@ -45,15 +49,10 @@ class LLMAnalyzer:
         self,
         output_dir: Path,
         subtitle_l: list[SubtitleRow],
-        *,
-        economic: bool = False,
     ) -> dict:
         """
         主入口 - 话题分割 -> 词级三阶段 -> 剪枝终判∥话题重置 -> 聚类
                 -> 宏观分析 -> 交易技巧与敏感信号 -> 主题分析
-
-        经济版（economic=True）：跳过第 1/2/3/4 步预处理与聚类、第 6/7 步板块分析，
-        直接用原始字幕跑宏观分析（仅四个非板块字段组），落盘到 llm_analysis_economic。
 
         Args:
             output_dir: 输出目录
@@ -61,36 +60,19 @@ class LLMAnalyzer:
         """
         # 全程包在 user_id_scope 内：拿视频级基础 user_id（断点续跑从 metadata.json 复用）。
         # 各阶段的 user_id 由 client 按 stage 派生 `{base_uid}_{stage}` 做阶段级隔离。
-        with user_id_scope(output_dir):
-            analysis_dir_name = "llm_analysis_economic" if economic else "llm_analysis"
-            llm_analysis_dir = output_dir / analysis_dir_name
+        # 同时包 system_prompt_scope：绑定完整版 system prompt（llm_summarize/shared_system.txt）。
+        with system_prompt_scope(load_system_prompt_file(_FULL_SYSTEM_PROMPT_PATH)), user_id_scope(output_dir):
+            llm_analysis_dir = output_dir / "llm_analysis"
             cached_analysis_path = llm_analysis_dir / "llm_analysis.json"
             if cached_analysis_path.exists():
                 logger.info("检测到缓存 %s，跳过 LLM 分析直接返回结果", cached_analysis_path)
                 with open(cached_analysis_path, encoding="utf-8") as f:
                     return json.load(f)
 
-            self._validate_subtitle_l(subtitle_l)
+            validate_subtitle_l(subtitle_l)
             logger.info("使用内存中的字幕数据，共 %d 条（过滤后）", len(subtitle_l))
 
             llm_analysis_dir.mkdir(parents=True, exist_ok=True)
-
-            if economic:
-                # 经济版：跳过第 1/2/3/4 步预处理与聚类、第 6/7 步板块分析，
-                # 直接用原始字幕跑宏观分析（四个非板块字段组）。
-                logger.info(
-                    "经济版模式：跳过第 1/2/3/4 步预处理与聚类、第 6/7 步板块分析，"
-                    "直接以原始字幕执行宏观分析"
-                )
-                analysis = self._macro_analysis_step.analyze(
-                    {}, llm_analysis_dir, subtitle_l, economic=True,
-                )
-                with open(cached_analysis_path, "w", encoding="utf-8") as f:
-                    json.dump(analysis, f, ensure_ascii=False, indent=2, default=str)
-                logger.info(
-                    "llm_analysis.json 已写入（经济版，%d 个顶层 section）", len(analysis),
-                )
-                return analysis
 
             # 步骤 1：话题分割
             with step_logger("第1步-话题分割"):
@@ -190,31 +172,4 @@ class LLMAnalyzer:
             logger.info("llm_analysis.json 已写入（合并 %d 个顶层 section）", len(analysis))
 
             return analysis
-
-    def _validate_subtitle_l(self, subtitle_l: list[SubtitleRow]) -> None:
-        if subtitle_l is None:
-            raise ValueError("subtitle_l参数不能为None")
-
-        if not isinstance(subtitle_l, list):
-            raise TypeError(f"subtitle_l参数必须是列表类型，实际类型: {type(subtitle_l)}")
-
-        if len(subtitle_l) == 0:
-            raise ValueError("subtitle_l参数不能为空列表")
-
-        # 验证并过滤无效条目
-        valid_count = 0
-        expected_row_id = 1
-        for item in subtitle_l:
-            if not isinstance(item, SubtitleRow):
-                continue
-            row_id = item.rowID
-            if row_id != expected_row_id:
-                raise ValueError(f"subtitle_l中rowID不是从1开始连续的，期望{expected_row_id}，实际{row_id}")
-            text = item.text
-            if text and str(text).strip():
-                valid_count += 1
-            expected_row_id += 1
-
-        if valid_count == 0:
-            raise ValueError("subtitle_l中没有有效字幕数据，所有条目都无效")
 

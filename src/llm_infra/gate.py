@@ -120,6 +120,7 @@ def wait_or_lead_prefix(
     stage: str | None,
     user_id: str | None,
     lead_fn: Callable[[], None],
+    shared: bool = False,
 ) -> bool:
     """同 (stage, user_id) 的首个请求执行 lead_fn（真实请求，串行写缓存），其余等待。
 
@@ -127,14 +128,17 @@ def wait_or_lead_prefix(
     False 表示 waiter（已等 leader 完成，需自行执行真实请求）。名单外阶段 /
     stage 为 None 直接返回 False（调用方自行执行，无预热）。
 
-    done 态门常驻，后续同 (stage, user_id) 的请求零等待跳过——保证每阶段只预热
-    一次（system_prompt + TASK 共享前缀只暖一次，[DATA] 按批次不同不参与缓存）。
+    `shared=True` 时预热键退化为 `("shared", user_id)`、忽略 stage——供经济版生成
+    阶段用：宏观/板块共 7 个字段组共享同一份完整字幕（`user_id` 相同），完整字幕
+    只预热一次，后续字段组命中「system + 完整字幕」前缀。
+
+    done 态门常驻，后续同键请求零等待跳过——保证每个键只预热一次。
     仅 failed 态弹出重试；断点续跑新进程首调用重新预热一次（缓存 TTL 已过期）。
     生命周期清理见 clear_user_id（挂在 user_id_scope 退出）。
     """
     if stage is None or stage not in _warmup_stages():
         return False
-    key = (stage, user_id)
+    key = ("shared", user_id) if shared else (stage, user_id)
     with _PIN_GATES_LOCK:
         gate = _PIN_GATES.get(key)
         if gate is None:

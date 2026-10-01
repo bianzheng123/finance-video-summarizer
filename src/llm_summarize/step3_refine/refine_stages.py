@@ -42,7 +42,7 @@ _TEMPLATE_ENV.policies["json.dumps_kwargs"] = {"ensure_ascii": False}
 _STAGES = ("3_1_关键词与剪枝", "3_2_话题重置")
 
 # 市场状态/技术形态词：不是金融资产/板块/事件，不应作为关键词/主题提取，
-# 由第 5 步宏观分析（大盘情绪/后市观点）覆盖。prompt 已排除，这里做确定性兜底，
+# 由第 5 步宏观分析（大盘情绪/宏观观点）覆盖。prompt 已排除，这里做确定性兜底，
 # 防止 prompt 漏网后仍进入主题列表。
 _MARKET_STATE_TERMS: frozenset[str] = frozenset({
     "双底", "牛市", "熊市", "慢牛", "快牛", "震荡市", "单边市",

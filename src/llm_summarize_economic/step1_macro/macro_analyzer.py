@@ -1,23 +1,12 @@
-"""5_2 宏观分析：按字段组渐进式披露（选段 → 段全文分析）+ 条目级修复。
+"""e1_1 宏观分析：按字段组分析（经济版，整场字幕）+ 条目级修复。
 
-**为什么拆字段组**：旧实现一次调用把整场字幕喂进去生成多个字段，输出 token 与
-失效重试成本都压在一次调用上，且任一字段引用不支撑就要重跑**整个**字段（重新
-生成 20~36 条列表却只取走 1 条）。现在按四个字段组各自独立：
-- 5_1 先只看「话题段索引」（行号范围 + 首行片段，纯代码拼、零 LLM）挑选相关段；
-- 5_2 只把选中段的全文作为 `[DATA]` 分析该组字段。
+经济版专用独立步骤（与完整版 ``step5_macro`` 完全独立）：无选段（经济版无
+keyword_data / 话题段），直接对整场字幕按四个字段组（大盘情绪 / 宏观事件 /
+宏观观点 / 仓位建议）分析，每个字段都是分块列表（`{标题/观点/引用}`）。
 
-`[DATA]` 由「整场完整字幕」改为「自选段全文」是 `[DATA]` 的新例外（见
-LLM调用层.md）：宏观的作用域本就需要通篇，但通篇的代价由**选段**承担——索引
-阶段极便宜，分析阶段只看选中的段，两端相加远低于整场。
-
-字段组定义 `MACRO_FIELD_GROUPS` 与 prompt 片段（公共头/尾 + 每字段片段）统一在
-`macro_prompt.py`（与经济版 step1_macro 共享）；组 schema 由 `5_2_宏观分析.json`
-按字段裁剪派生（单份 schema 为唯一真源，杜绝四份 schema 漂移）。每次 5_2 调用只
-组装当前字段组的 prompt 片段，其余字段的规则不进入 prompt。
-
-**修复粒度**：校验不支撑时只重写**失败的那一条**（`repair_item`），log_name 用
-可读的「字段组 + 条目标识」而非随机 uuid——旧实现的 `5_1_宏观分析_repair_{字段}_{uuid6}`
-目录爆炸（实测 13 个）正源于此。
+组 schema 由 `e1_1_宏观分析.json` 按字段裁剪派生（单份 schema 为唯一真源）。prompt
+片段与字段注册表复用完整版 `src.llm_summarize.step5_macro.macro_prompt`，仅 `[DATA]`
+语义由本包 `_macro_data_econ.txt` 提供，每次 e1_1 调用只组装当前字段组的片段。
 """
 
 import logging
@@ -28,8 +17,9 @@ from jinja2 import Environment, FileSystemLoader
 from ...llm_infra.client import LLMClient
 from ...llm_infra.schema import _load_schema, get_step_output_dir
 from ...log_config import step_logger
-from ..analysis_common import build_repair_items
-from .macro_prompt import (
+from ...utils.llm_user_id import economic_user_id
+from ...llm_summarize.analysis_common import build_repair_items
+from ...llm_summarize.step5_macro.macro_prompt import (
     MACRO_FIELD_GROUPS,
     MacroFieldGroup,
     _sanitize_filename,
@@ -39,14 +29,14 @@ from .macro_prompt import (
 
 logger = logging.getLogger(__name__)
 
-_COMMON_DIR = Path(__file__).parent.parent / "analysis_common"
+_COMMON_DIR = Path(__file__).parent.parent.parent / "llm_summarize" / "analysis_common"
 
 
 class MacroAnalyzer:
-    """5_2 宏观分析：单字段组分析（段全文 `[DATA]`）+ 条目级修复。"""
+    """e1_1 宏观分析：单字段组分析（整场字幕 `[DATA]`）+ 条目级修复。"""
 
     SECTION_NAME = "宏观分析"
-    STEP_NUMBER_STR = "5_2"
+    STEP_NUMBER_STR = "e1_1"
 
     def __init__(
         self,
@@ -56,21 +46,21 @@ class MacroAnalyzer:
     ) -> None:
         self._llm_client = llm_client
         self._schema = schema
-        # 版本专属 [DATA]/[DATABASE] 语义片段（完整版：5_1 选段 + 指数/风格因子列表）
+        # 版本专属 [DATA] 语义片段（经济版：整场字幕，无选段）
         self._data_semantics = data_semantics
         # 修复模式只输出失败条目的局部 JSON，不再重新生成整个字段
-        self._repair_schema = _load_schema("5_2_宏观分析_repair", __file__)
+        self._repair_schema = _load_schema("e1_1_宏观分析_repair", __file__)
         _jinja_env = Environment(
             loader=FileSystemLoader([str(Path(__file__).parent), str(_COMMON_DIR)])
         )
         _jinja_env.policies["json.dumps_kwargs"] = {"ensure_ascii": False}
-        self._user_template = _jinja_env.get_template("5_2_宏观分析_user.jinja2")
+        self._user_template = _jinja_env.get_template("e1_1_宏观分析_user.jinja2")
 
     # ==================== schema 派生 ====================
 
     @staticmethod
     def group_schema(full_schema: dict, group: MacroFieldGroup) -> dict:
-        """从整份 5_2 schema 裁剪出单字段组的 schema（唯一真源，防漂移）。"""
+        """从整份 e1_1 schema 裁剪出单字段组的 schema（唯一真源，防漂移）。"""
         props = full_schema.get("properties") or {}
         required = set(full_schema.get("required") or [])
         return {
@@ -79,35 +69,28 @@ class MacroAnalyzer:
             "required": [k for k in group.字段 if k in required],
         }
 
-    # ==================== 5_2 分析 ====================
+    # ==================== e1_1 分析 ====================
 
     def analyze_group(
         self,
         group: MacroFieldGroup,
         subtitle_text: str,
         base_dir: Path,
-        indices_text: str = "",
-        styles_text: str = "",
-        annotation_text: str = "",
         result_sink: dict[str, dict] | None = None,
     ) -> tuple[str, dict]:
         """分析单个字段组，返回 (组名, 该组字段的局部结果)。
 
-        `[DATA]` 是 5_1 选中的话题段全文（不是整场字幕），见模块 docstring。
-        阶段标签在本方法内自打——本方法会被丢进线程池，提交点的 with 块管不到
-        worker 线程。
+        `[DATA]` 是整场字幕（经济版无选段）。阶段标签在本方法内自打——本方法会被
+        丢进线程池，提交点的 with 块管不到 worker 线程。
         """
         safe_name = _sanitize_filename(group.名称)
         with step_logger(f"第{self.STEP_NUMBER_STR}步-{group.名称}"):
             user_prompt = self._user_template.render(
                 task_rules=build_field_prompt(group.字段[0], self._data_semantics),
                 subtitle_text=subtitle_text,
-                annotation_text=annotation_text,
-                indices_text=indices_text,
-                styles_text=styles_text,
                 repair_items=[],
             )
-            log_dir = get_step_output_dir(base_dir, 5) if base_dir is not None else None
+            log_dir = get_step_output_dir(base_dir, 1) if base_dir is not None else None
             log_name = f"{self.STEP_NUMBER_STR}_宏观分析_{safe_name}"
             result = self._llm_client.call(
                 user_prompt=user_prompt,
@@ -116,6 +99,8 @@ class MacroAnalyzer:
                 log_dir=log_dir,
                 log_name=log_name,
                 step_name=f"{self.STEP_NUMBER_STR}_宏观分析_{group.名称}",
+                user_id=economic_user_id(),
+                warmup_shared=True,
             )
             if result_sink is not None:
                 result_sink[log_name] = result
@@ -136,18 +121,12 @@ class MacroAnalyzer:
         subtitle_text: str,
         base_dir: Path,
         valid_row_ids: set[int],
-        indices_text: str = "",
-        styles_text: str = "",
-        annotation_text: str = "",
         result_sink: dict[str, dict] | None = None,
     ) -> dict | None:
         """只重写失败的那一条宏观条目，返回修复后的条目；不可用返回 None。
 
-        与旧实现（整字段重跑再按名称取一条）的差别：
-        - `原始内容` 只给失败条目本身，prompt 明确要求**只输出这一条**；
-        - log_name 是「字段组 + 条目标识」的可读名，不再带随机 uuid；
-        - 写回前做确定性校验（引用非空且落在合法行号集合内），不通过返回 None
-          （由调用方退回重写路径），杜绝"修复无效无人发现"。
+        写回前做确定性校验（引用非空且落在合法行号集合内），不通过返回 None
+        （由调用方退回重写路径），杜绝"修复无效无人发现"。
         """
         sub_key = task.get("sub_key")
         group = group_of_field(sub_key) if sub_key else None
@@ -166,9 +145,6 @@ class MacroAnalyzer:
             user_prompt = self._user_template.render(
                 task_rules=build_field_prompt(group.字段[0], self._data_semantics),
                 subtitle_text=subtitle_text,
-                annotation_text=annotation_text,
-                indices_text=indices_text,
-                styles_text=styles_text,
                 repair_items=build_repair_items([{
                     "字段": sub_key,
                     "失败原因": failure_reason,
@@ -183,7 +159,7 @@ class MacroAnalyzer:
                 user_prompt=user_prompt,
                 temperature=0.0,
                 schema=self._repair_schema,
-                log_dir=get_step_output_dir(base_dir, 5) if base_dir is not None else None,
+                log_dir=get_step_output_dir(base_dir, 1) if base_dir is not None else None,
                 log_name=log_name,
                 step_name=f"{self.STEP_NUMBER_STR}_宏观分析_{group.名称}_修复",
             )

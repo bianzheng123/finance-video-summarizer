@@ -13,7 +13,14 @@ from .rendering.rendering_base import BaseRenderer
 from .rendering.rendering_summary import SummaryRenderer as SummaryRendererImpl
 from .rendering.rendering_gongzhonghao import GongzhonghaoRenderer as GongzhonghaoRendererImpl
 from .rendering.rendering_html_structured import render_structured_html
-from .rendering.inv_filter import inv_event_titles, inv_has_substance, inv_should_skip, is_unstated
+from .rendering.inv_filter import (
+    inv_event_titles,
+    inv_has_substance,
+    inv_should_skip,
+    is_unstated,
+    sector_tendency_rank,
+    stance_has_substance,
+)
 from .log_config import step_logger
 from .utils.analysis_cleanup import clean_analysis
 
@@ -21,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # 非主题的顶层固定章节：既不被当作主题参与排序，也不产出主题级速览。
 FIXED_SECTION_NAMES = {
-    "宏观分析", "交易技巧", "精炼总结", "主讲人暗示重要话题",
+    "宏观分析", "板块分析", "交易技巧", "精炼总结", "主讲人暗示重要话题",
 }
 
 
@@ -85,8 +92,8 @@ class SummaryRenderer:
         return groups
 
     @staticmethod
-    def _summarize_hot_sector_prediction(payload: dict) -> str:
-        """把结构化的热点板块预测压成一行字符串，供 TLDR 大盘概览展示。
+    def _summarize_sector_views(payload: dict) -> str:
+        """把结构化的板块观点（总览 + 板块清单）压成一行字符串，供 TLDR 板块概览展示。
 
         优先用 `总览` 字段；若缺失则从 `板块清单` 拼一段简要描述。
         """
@@ -136,14 +143,19 @@ class SummaryRenderer:
 
         macro_analysis = analysis.get("宏观分析") or {}
 
-        # 大盘概览
+        # 大盘概览（宏观分析 4 字段）
         market_overview = {
-            "今日市场": SummaryRenderer._join_macro_blocks(macro_analysis.get("大盘情绪与状态判断")),
-            "宏观事件": SummaryRenderer._join_macro_blocks(macro_analysis.get("宏观经济与事件影响分析")),
-            "后市观点": SummaryRenderer._join_macro_blocks(macro_analysis.get("后市观点")),
+            "今日市场": SummaryRenderer._join_macro_blocks(macro_analysis.get("大盘情绪")),
+            "宏观事件": SummaryRenderer._join_macro_blocks(macro_analysis.get("宏观事件")),
+            "宏观观点": SummaryRenderer._join_macro_blocks(macro_analysis.get("宏观观点")),
             "仓位建议": SummaryRenderer._join_macro_blocks(macro_analysis.get("仓位建议")),
-            "热点板块预测": SummaryRenderer._summarize_hot_sector_prediction(macro_analysis.get("热点板块预测") or {}),
         }
+        # 经济版有独立「板块分析」section：加入板块概览
+        sector_analysis = analysis.get("板块分析")
+        if isinstance(sector_analysis, dict):
+            market_overview["板块分析"] = SummaryRenderer._summarize_sector_views(
+                sector_analysis.get("板块观点") or {}
+            )
         tldr_result["大盘概览"] = market_overview
 
         short_term_opportunities = []
@@ -384,13 +396,15 @@ class SummaryRenderer:
         return filtered_dict
 
     def _get_render_order(self, analysis: dict) -> list[str]:
-        """获取渲染顺序：精炼总结 -> 宏观分析 -> 主讲人暗示重要话题 -> 板块分析（按引用总时长从大到小）-> 交易技巧"""
+        """获取渲染顺序：精炼总结 -> 宏观分析 -> 板块分析 -> 主讲人暗示重要话题 -> 主题（按引用总时长从大到小）-> 交易技巧"""
         order = []
 
         if "精炼总结" in analysis:
             order.append("精炼总结")
         if "宏观分析" in analysis:
             order.append("宏观分析")
+        if "板块分析" in analysis:
+            order.append("板块分析")
         if "主讲人暗示重要话题" in analysis:
             order.append("主讲人暗示重要话题")
 
@@ -411,36 +425,45 @@ class SummaryRenderer:
         return order
 
     def _render_macro_section(self, renderers: list[tuple[str, BaseRenderer]], renderer_parts: dict[str, list[str]], section_data: dict) -> None:
-        """渲染宏观分析章节"""
+        """渲染宏观分析章节（4 个分块字段）。"""
         for name, renderer in renderers:
             renderer_parts[name].append(renderer.render_section_title("宏观分析", is_first=False))
 
-        field_keys = ["大盘情绪与状态判断", "宏观经济与事件影响分析", "后市观点", "仓位建议", "热点板块预测"]
-        for field_key in field_keys:
+        for field_key in ("大盘情绪", "宏观事件", "宏观观点", "仓位建议"):
             field_val = section_data.get(field_key)
-            if field_val is None:
+            if not isinstance(field_val, list):
                 continue
             for name, renderer in renderers:
                 renderer_parts[name].append(renderer.render_subsection_title(field_key))
-                if field_key == "热点板块预测" and isinstance(field_val, dict):
-                    renderer_parts[name].extend(
-                        self._render_hot_sector_prediction(renderer, field_val)
-                    )
-                elif isinstance(field_val, list):
-                    # 分块字段：每块 `### 标题` + 观点 + 该块自己的引用
-                    renderer_parts[name].extend(
-                        renderer.render_complex_list(field_val, renderer.render_citations)
-                    )
-                elif isinstance(field_val, dict):
-                    renderer_parts[name].extend(
-                        renderer.render_dict_fields(field_val, renderer.render_citations)
-                    )
-                else:
-                    renderer_parts[name].append(f"{field_val}\n\n")
+                # 分块字段：每块 `### 标题` + 观点 + 该块自己的引用
+                renderer_parts[name].extend(
+                    renderer.render_complex_list(field_val, renderer.render_citations)
+                )
+
+    def _render_sector_section(self, renderers: list[tuple[str, BaseRenderer]], renderer_parts: dict[str, list[str]], section_data: dict) -> None:
+        """渲染板块分析章节（板块观点富结构优先，其次板块情绪/板块事件分块）。"""
+        for name, renderer in renderers:
+            renderer_parts[name].append(renderer.render_section_title("板块分析", is_first=False))
+
+        views = section_data.get("板块观点")
+        if isinstance(views, dict):
+            for name, renderer in renderers:
+                renderer_parts[name].append(renderer.render_subsection_title("板块观点"))
+                renderer_parts[name].extend(self._render_sector_views(renderer, views))
+
+        for field_key in ("板块情绪", "板块事件"):
+            field_val = section_data.get(field_key)
+            if not isinstance(field_val, list):
+                continue
+            for name, renderer in renderers:
+                renderer_parts[name].append(renderer.render_subsection_title(field_key))
+                renderer_parts[name].extend(
+                    renderer.render_complex_list(field_val, renderer.render_citations)
+                )
 
     @staticmethod
-    def _render_hot_sector_prediction(renderer: BaseRenderer, payload: dict) -> list[str]:
-        """渲染热点板块预测：先一段总览，再渲染每个板块条目。"""
+    def _render_sector_views(renderer: BaseRenderer, payload: dict) -> list[str]:
+        """渲染板块观点富结构：先一段总览，再渲染每个板块条目。"""
         parts: list[str] = []
         overview = (payload.get("总览") or "").strip()
         if overview:
@@ -464,6 +487,9 @@ class SummaryRenderer:
                     continue
                 new_item[k] = v
             display_items.append(new_item)
+
+        # 按预测倾向排序：看多 → 看空 → 不明确（稳定排序，同倾向保持 LLM 原顺序）
+        display_items.sort(key=lambda it: sector_tendency_rank(it.get("预测倾向")))
 
         parts.extend(renderer.render_complex_list(display_items, renderer.render_citations))
         return parts
@@ -557,11 +583,12 @@ class SummaryRenderer:
                 # 规则 3：事件无 + 全部未表态 → 整 inv 砍掉
                 if inv_should_skip(inv, event_titles):
                     continue
-                # 规则 2：字段级隐藏 —— 浅拷贝，把未表态的 短线/中长线/当前价格 删掉
+                # 规则 2：字段级隐藏 —— 浅拷贝，删掉所有「未表态」的 短线/中长线/中线/长线
+                # （未表态一律不渲染，即使逻辑含条件性方向判断、条件/前置事件非空也一并隐藏）
                 cleaned = dict(inv)
                 for tk in ("短线", "中长线", "中线", "长线"):
                     tv = cleaned.get(tk)
-                    if isinstance(tv, dict) and is_unstated(tv.get("观点")):
+                    if isinstance(tv, dict) and not stance_has_substance(tv):
                         cleaned.pop(tk, None)
                 price_viewpoint = (cleaned.get("当前价格") or {}).get("观点")
                 if is_unstated(price_viewpoint):
@@ -626,12 +653,23 @@ class SummaryRenderer:
                 renderer_parts[name].append(renderer.render_subsection_title("其他"))
                 renderer_parts[name].extend(renderer.render_complex_list(other_items, renderer.render_citations))
 
-    def _prepare_analysis(self, analysis: dict) -> dict:
+    def _prepare_analysis(self, analysis: dict, *, economic: bool = False) -> dict:
         """
         准备分析数据：如果没有精炼总结则生成
         注意：除了生成TLDR之外，不应该修改原始analysis数据
         （render_save 入口的防御清理除外）
+
+        经济版（economic=True）不生成「精炼总结」——经济版只做宏观分析 + 板块分析，
+        不需要反向构造的 TLDR 速览；若入参残留则一并剔除，保证所有渲染产物都不含该章节。
         """
+        if economic:
+            if "精炼总结" in analysis:
+                analysis.pop("精炼总结", None)
+                logger.info("经济版跳过精炼总结：economic=True，已剔除残留的「精炼总结」")
+            else:
+                logger.info("经济版跳过精炼总结：economic=True，不生成「精炼总结」")
+            return analysis
+
         if "精炼总结" not in analysis:
             logger.info("生成精炼总结...")
             tldr = self._generate_tldr(analysis)
@@ -693,6 +731,8 @@ class SummaryRenderer:
                 )
             elif section_key == "宏观分析":
                 self._render_macro_section(renderers, renderer_parts, section_data)
+            elif section_key == "板块分析":
+                self._render_sector_section(renderers, renderer_parts, section_data)
             elif section_key == "主讲人暗示重要话题":
                 self._render_sensitive_hints_section(renderers, renderer_parts, section_data)
             elif section_key == "交易技巧":
@@ -815,8 +855,8 @@ class SummaryRenderer:
                     rec["路径"], rec["失败原因"] or "无",
                 )
 
-            # 准备分析数据：生成精炼总结
-            analysis = self._prepare_analysis(analysis)
+            # 准备分析数据：生成精炼总结（经济版跳过）
+            analysis = self._prepare_analysis(analysis, economic=economic)
 
             # 加载未解析黑话表（用于渲染时给孤立黑话加 `个股黑话：xxx` / `板块黑话：xxx` 前缀）
             unresolved_jargons = self._load_unresolved_jargons(output_dir)
@@ -881,9 +921,9 @@ class SummaryRenderer:
 
         market_overview = tldr.get("大盘概览")
         if market_overview and isinstance(market_overview, dict):
-            overview_keys = ["今日市场", "宏观事件", "后市观点", "仓位建议"]
-            if not economic:
-                overview_keys.append("热点板块预测")
+            overview_keys = ["今日市场", "宏观事件", "宏观观点", "仓位建议"]
+            if "板块分析" in market_overview:
+                overview_keys.append("板块分析")
             for name, renderer in renderers:
                 renderer_parts[name].append(renderer.render_subsection_title("大盘概览"))
                 for field_key in overview_keys:
